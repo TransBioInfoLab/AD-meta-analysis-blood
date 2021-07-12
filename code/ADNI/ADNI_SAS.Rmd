@@ -1,0 +1,1018 @@
+---
+title: "ADNI dataset"
+author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    highlight: breezedark
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: false
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+```
+
+# Setup
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+library(SummarizedExperiment)
+library(ExperimentHub)
+library(ADNIMERGE)
+library(dplyr)
+library(readxl)
+library(wateRmelon)
+library(minfi)
+cohort <- "ADNI"
+dir.base <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/"
+dir.data <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation") 
+dir.data.clinical <- file.path(dir.base,"datasets/",cohort,"/data/Clinical") 
+dir.data.raw <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/idat") 
+dir.data.processed <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/processed") 
+dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
+dir.data.pca <- file.path(dir.data,"/pca_filtering/") 
+dir.results <- file.path(dir.base,"analysis_results",cohort)
+dir.results.lm <- file.path(dir.results,"/Linear_mixed_model")
+dir.results.glm <- file.path(dir.results,"/Logistic_regression_model")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+# Data retrieval
+
+Source: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153712
+
+```{r, eval = FALSE}
+RGSet <- read.metharray.exp(
+  base = dir.data.raw,
+  recursive = TRUE,
+  verbose = TRUE
+)
+saveRDS(RGSet, paste0(dir.data.processed,"/RGSet.RDS"))
+```
+
+#  Data Pre-processing 
+
+```{R, eval = FALSE}
+message(object.size(RGSet))
+bs <- data.frame(bisulfiteConversion = bscon(RGSet))
+bsFilteredOut <- row.names(bs)[bs$bisulfiteConversion < 85]
+nb.samples <- ncol(RGSet)
+RGSet.filtered <- RGSet[,!colnames(RGSet) %in% bsFilteredOut]
+nb.samples.bc.filtered <-  ncol(RGSet.filtered)
+
+save(
+  RGSet.filtered, 
+  bs, 
+  nb.samples, 
+  nb.samples.bc.filtered, 
+  file =  file.path(dir.data.processed,"/RGSet_filtered_bs_min_85.rda")
+)
+```
+
+
+```{R, eval = TRUE}
+load(file.path(dir.data.processed,"/RGSet_filtered_bs_min_85.rda"))
+```
+
+```{R, eval = FALSE}
+bs$barcodes <- rownames(bs)
+meta <- readxl::read_xlsx(file.path(dir.data,"ADNI_DNA_Methylation_SampleAnnotation_20170530.xlsx"))
+meta.with.bs <- dplyr::left_join(bs,meta)
+meta.with.bs <- meta.with.bs[order(-meta.with.bs$bisulfiteConversion),]
+meta.with.bs$RID_Phase_Edata <- paste0(meta.with.bs$RID,"_",meta.with.bs$Phase,"_",meta.with.bs$Edate)
+meta.with.bs$is_replicate <- duplicated(meta.with.bs$RID_Phase_Edata)
+
+readr::write_csv(
+  meta.with.bs,
+  file = file.path(dir.data.processed,"ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs.csv")
+)
+
+meta.with.bs <- meta.with.bs %>% dplyr::filter(is_replicate == FALSE & !is.na(Slide) & bisulfiteConversion >= 85)
+samples.keep <- meta.with.bs %>% dplyr::pull(barcodes)
+RGSet.filtered <- RGSet.filtered[,samples.keep]
+
+save(
+  RGSet.filtered, 
+  meta.with.bs,
+  file = file.path(dir.data.processed,"/RGSet_filtered_bs_min_85_no_replicates_no_missing_info.rda")
+)
+```
+
+## Remove samples with age < 65
+```{R, load_bs_filtered, include = FALSE}
+load(file.path(dir.data.processed,"RGSet_filtered_bs_min_85_no_replicates_no_missing_info.rda"))
+nb.probes.before.norm <- nrow(RGSet.filtered)
+```
+
+```{R}
+meta.with.bs$ID <- paste0(     
+  meta.with.bs$RID,
+  meta.with.bs$Phase,
+  meta.with.bs$Edate
+)
+
+dnam.rid <- meta.with.bs$ID[match(colnames(RGSet.filtered), meta.with.bs$barcodes)]
+clinical <- readr::read_csv(file.path(dir.data.clinical,"ADNIMERGE_downloaded_3-1-2021.csv"))
+clinical$ID <- paste0(clinical$RID,clinical$COLPROT,clinical$EXAMDATE)
+clinical$ID2 <- paste0(clinical$RID,clinical$COLPROT,clinical$VISCODE)
+# it seems some samples do not have clinical data ?
+dnam.rid <- dnam.rid[dnam.rid %in% clinical$ID] 
+clinical <- clinical[match(dnam.rid,clinical$ID),]
+
+clinical$PlateNumber <- meta.with.bs$PlateNumber[
+    match(clinical$ID,meta.with.bs$ID)
+]
+clinical$bisulfiteConversion <- meta.with.bs$bisulfiteConversion[
+    match(clinical$ID,meta.with.bs$ID)
+]
+clinical$Array  <- meta.with.bs$Array[
+    match(clinical$ID,meta.with.bs$ID)
+]
+
+clinical$barcodes  <- meta.with.bs$barcodes[
+    match(clinical$ID,meta.with.bs$ID)
+]
+
+clinical$DateDrawn <- meta.with.bs$DateDrawn[
+    match(clinical$ID,meta.with.bs$ID)
+]
+
+rownames(clinical) <- clinical$barcodes
+clinical$PlateNumber <- factor(clinical$PlateNumber)
+
+demo <- readr::read_csv(file.path(dir.data.clinical,"PTDEMOG_3-1-2021.csv"))
+clinical$birth_month <- demo$PTDOBMM[match(clinical$RID, demo$RID)]
+clinical$birth_year <- demo$PTDOBYY[match(clinical$RID, demo$RID)]
+
+# we don't have the day so we set to one
+library(lubridate)
+clinical$age_at_visit <- interval(
+    as.Date(paste0(clinical$birth_month,"/1/",clinical$birth_year), "%m/%d/%Y"),
+    clinical$DateDrawn
+) %>% time_length(unit = "years")
+```
+
+```{R}
+samples.min.age.65 <- clinical$barcodes[clinical$age_at_visit >= 65]
+clinical.filtered.min.age_at_visit.65 <- clinical[clinical$age_at_visit >= 65,]
+RGSet.bs.filtered.min.age_at_visit.65 <- RGSet.filtered[,samples.min.age.65]
+```
+
+```{R, include = FALSE}
+rm(RGSet.filtered)
+gc()
+```
+
+```{R save_RGSet.bs.filtered.min.age.65, eval = FALSE}
+save(
+  RGSet.bs.filtered.min.age_at_visit.65, 
+  clinical.filtered.min.age_at_visit.65,
+  file = file.path(dir.data.processed,"RGSet_bs_filtered_min_age_at_visit_65.rda")
+)
+```
+
+```{R age_hist, eval = TRUE, echo = FALSE}
+library(ggplot2)
+ggpubr::gghistogram(data = clinical,x = "age_at_visit",color = "white",fill = "blue", bins = 50) + 
+  geom_vline(xintercept = 65, color = "red", size=0.4) +
+    geom_text(color = "red",
+        size    = 5,
+        data    = plyr::count(clinical$age_at_visit < 65) %>% filter(x == T),
+        mapping = aes(x = -Inf, y = Inf, label = freq),
+        hjust   = -1.05,
+        vjust   = 2
+    ) +
+    geom_text(color = "blue",
+        size    = 5,
+        data    = plyr::count(clinical$age_at_visit >= 65) %>% filter(x == T),
+        mapping = aes(x = Inf, y = Inf, label = freq),
+        hjust   = 2,
+        vjust   = 2
+    )
+```
+
+## Probes QC
+
+1. keep only probes that start with "cg"
+2. drop probes that are on X/Y
+3. drop probes where SNP with MAF >= 0.01 was present in the last 5 bp of the probe.
+4. Remove smoking related probes
+
+```{R, load_bs_filtered_min_65, include = FALSE}
+load(file.path(dir.data.processed,"RGSet_bs_filtered_min_age_at_visit_65.rda"))
+nb.probes.before.norm <- nrow(RGSet.bs.filtered.min.age_at_visit.65)
+```
+
+
+```{R, eval = FALSE}
+library(minfi)
+library(wateRmelon)
+library(RPMM)
+library(DMRcate)
+detP <- detectionP(RGSet.bs.filtered.min.age_at_visit.65, type = "m+u")
+failed.01 <- detP > 0.01
+passedProbes <- rownames(failed.01)[rowMeans(failed.01) == 0]
+sum(rowMeans(failed.01) == 0)  
+save(passedProbes, file = file.path(dir.data.processed,"detectionP_passed_probes.rda"))
+```
+
+```{R}
+load(file.path(dir.data.processed,"detectionP_passed_probes.rda"))
+```
+
+```{R, eval = FALSE}
+betaSet <- getBeta(RGSet.bs.filtered.min.age_at_visit.65)
+rm(RGSet.bs.filtered.min.age_at_visit.65)
+gc()
+betaSet <- betaSet[rownames(betaSet) %in% passedProbes, ]
+betaSet <- betaSet[grep("cg",rownames(betaSet)),]
+
+# snapshotDate(): 2021-03-30
+betaSet <- rmSNPandCH(
+  object = betaSet,
+  dist = 5,
+  mafcut = 0.01,
+  and = TRUE,
+  rmcrosshyb = TRUE,
+  rmXY = TRUE
+)
+```
+
+
+## Remove smoking probes
+
+```{R, eval = FALSE}
+smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
+if(!file.exists(file.path(dir.data.aux,basename(smoking.file)))) {
+  downloader::download(smoking.file,file.path(dir.data.aux,basename(smoking.file)))
+}
+smoking <- readxl::read_xlsx(
+    file.path(dir.data.aux,basename(smoking.file)),
+    sheet = "02",
+    skip = 2
+)
+smoking.sig.probes <- smoking %>%
+  dplyr::filter(`P-value` < 1*10^(-7)) %>%
+  dplyr::pull("Probe ID")
+
+betaSet <- betaSet[!rownames(betaSet) %in% smoking.sig.probes,]
+
+save(
+  betaSet, 
+  clinical.filtered.min.age_at_visit.65,
+  file = file.path(dir.data.processed,"RGSet_bs_filtered_min_age_at_visit_65_before_norm.rda")
+)
+
+```
+
+## Samples QC
+
+### Quantile normalization
+
+```{R, eval = FALSE}
+library(lumi)
+betaQN <- lumiN(x.lumi = betaSet, method = "quantile")
+saveRDS(betaQN, file.path(dir.data.processed,"betaQN_min_age_at_visit_65.RDS"))
+```
+
+```{R, include = FALSE}
+betaQN <- readRDS(file.path(dir.data.processed,"betaQN_min_age_at_visit_65.RDS"))
+```
+
+```{R}
+boxplot(betaQN[,1:100])
+```
+
+### BMIQ normalization
+```{R, message = FALSE, results = "hide"}
+library(wateRmelon)
+library(RPMM)
+```
+
+```{R, eval = TRUE}
+annotType <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Manifest
+annotType$designTypeNumeric <- ifelse(annotType$Type == "I",1,2)
+library(sm)
+
+betaQNCompleteCol1 <- betaQN[complete.cases(betaQN[,1]), ]
+annotTypeCompleteCol1 <- annotType[row.names(betaQNCompleteCol1), ]
+
+sm.density.compare(
+  betaQNCompleteCol1[,1],
+  annotTypeCompleteCol1$designTypeNumeric
+)
+rm(betaQNCompleteCol1)
+rm(annotTypeCompleteCol1)
+```
+
+```{R, eval = FALSE}
+type12 <- annotType$designTypeNumeric[match(rownames(betaQN),rownames(annotType))]
+set.seed (946)
+doParallel::registerDoParallel(cores = 1)
+betaQN_BMIQ <- plyr::aaply(
+  betaQN, 2,
+  function(x){
+    norm_ls <- BMIQ(x, design.v = type12, plots = FALSE)
+    return (norm_ls$nbeta)
+  },.progress = "time",.parallel = FALSE
+) %>% t()
+
+saveRDS(betaQN_BMIQ, file.path(dir.data.processed,"ADNI_QNBMIQ_min_age_at_visit_65.RDS"))
+```
+
+
+### Compute cell type proportions 
+```{R, eval = FALSE, include = TRUE}
+betaQN_BMIQ <- readRDS(file.path(dir.data.processed,"ADNI_QNBMIQ_min_age_at_visit_65.RDS"))
+
+library(EpiDISH)
+data(centDHSbloodDMC.m)
+BloodFrac.m <- epidish(beta.m = betaQN_BMIQ, ref.m = centDHSbloodDMC.m, method = "RPC")$estF
+```
+
+### Summarize Experiment
+
+```{R, eval = FALSE}
+library(ADNIMERGE)
+library(dplyr)
+library(readxl)
+
+ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs <- readr::read_csv(
+  file.path(dir.data,"ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs.csv")
+) 
+ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID <- paste0(     
+  ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$RID,
+  ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$Phase,
+  ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$Edate
+)
+dnam.rid <- ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID[match(
+  colnames(betaQN_BMIQ), ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$barcodes
+  )
+]
+
+
+
+# clinical <- ADNIMERGE::adnimerge
+clinical <- readr::read_csv(file.path(dir.data.clinical,"ADNIMERGE_downloaded_3-1-2021.csv"))
+# clinical$DIAGNOSIS <- clinical$DX
+clinical$ID <- paste0(clinical$RID,clinical$COLPROT,clinical$EXAMDATE)
+clinical$ID2 <- paste0(clinical$RID,clinical$COLPROT,clinical$VISCODE)
+# it seems some samples do not have clinical data ?
+dnam.rid <- dnam.rid[dnam.rid %in% clinical$ID] 
+clinical <- clinical[match(dnam.rid,clinical$ID),]
+
+
+clinical$PlateNumber <- ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$PlateNumber[
+  match(clinical$ID,ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID)
+]
+clinical$bisulfiteConversion <- ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$bisulfiteConversion[
+  match(clinical$ID,ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID)
+]
+clinical$Array  <- ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$Array[
+  match(clinical$ID,ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID)
+]
+
+clinical$barcodes  <- ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$barcodes[
+  match(clinical$ID,ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID)
+]
+
+clinical$DateDrawn <- ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$DateDrawn[
+  match(clinical$ID,ADNI_DNA_Methylation_SampleAnnotation_20170530_with_bs$ID)
+]
+
+rownames(clinical) <- clinical$barcodes
+
+clinical <- merge(
+  clinical, 
+  BloodFrac.m,
+  by.x = "row.names",
+  by.y = "row.names",
+  sort = FALSE
+)
+clinical$PlateNumber <- factor(clinical$PlateNumber)
+rownames(clinical) <- clinical$Row.names
+clinical$Row.names <- NULL
+
+demo <- readr::read_csv(file.path(dir.data.clinical,"PTDEMOG_3-1-2021.csv"))
+clinical$birth_month <- demo$PTDOBMM[match(clinical$RID, demo$RID)]
+clinical$birth_year <- demo$PTDOBYY[match(clinical$RID, demo$RID)]
+
+# we don't have the day so we set to one
+library(lubridate)
+clinical$age_at_visit <- interval(
+  as.Date(paste0(clinical$birth_month,"/1/",clinical$birth_year), "%m/%d/%Y"),
+  clinical$DateDrawn
+) %>% time_length(unit = "years")
+
+
+clinical <-  clinical %>% dplyr::select(
+  c(barcodes, 
+    RID, 
+    COLPROT,
+    VISCODE, 
+    PTGENDER, 
+    PTEDUCAT,
+    DateDrawn  ,
+    DX, 
+    PlateNumber,
+    birth_year,
+    birth_month,
+    age_at_visit, 
+    bisulfiteConversion,
+    B, 
+    NK,   
+    CD4T, 
+    CD8T,   
+    Mono,   
+    Neutro, 
+    Eosino,
+    APOE4
+  ))
+
+library(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+library(S4Vectors)
+epic.hg19 <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+epic.hg19.gr <- epic.hg19 %>% makeGRangesFromDataFrame(
+  start.field = "pos", end.field = "pos",keep.extra.columns = T
+)
+
+betaQN_BMIQ <- betaQN_BMIQ[rownames(betaQN_BMIQ) %in% names(epic.hg19.gr),]
+rowData <- epic.hg19.gr[rownames(betaQN_BMIQ),]
+data <- betaQN_BMIQ[,colnames(betaQN_BMIQ) %in% rownames(clinical)]
+data <- data[,rownames(clinical)]
+
+adni.se <- SummarizedExperiment::SummarizedExperiment(
+  assays = SimpleList("DNAm" = data),
+  rowData = rowData,
+  metadata = list("genome" = "hg19"),
+  colData = clinical
+)
+
+saveRDS(adni.se, file = file.path(dir.data.processed,"adni_se_min_age_at_visit_65.RDS"))
+readr::write_csv(
+  clinical %>% as.data.frame, 
+  file = file.path(dir.data.processed,"ADNI_Se_colData.csv")
+)
+```
+
+
+# Outliers detection - PCA analysis
+
+Description: 
+
+1. Estimate standard deviation for each probe
+2. Select most variable probes (e.g. n = 50,000)
+3. PCA plot
+4. Filter outliers
+
+```{R load_plot_pca}
+adni.se <- readRDS(file.path(dir.data.processed,"adni_se_min_age_at_visit_65.RDS"))
+### transform to m values
+pheno_df <- colData(adni.se) %>% as.data.frame
+pheno_df$sample <- colnames(adni.se)
+nb.samples.before.pca <- ncol(adni.se)
+# plotPCA and OrderDataBySd functions
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+##### 1.Order matrix by most variable probes on top ############################
+betaOrd_mat <- OrderDataBySd(SummarizedExperiment::assay(adni.se)) 
+```
+
+
+
+```{R, eval = FALSE}
+pca <- prcomp(
+  t(betaOrd_mat[1:50000,]),
+  center = TRUE,
+  scale = TRUE
+)
+d <- data.frame(PC1 = pca$x[, 1], PC2 = pca$x[, 2])
+meanPC1 <- mean (d$PC1)
+sdPC1   <- sd (d$PC1)
+meanPC2 <- mean (d$PC2)
+sdPC2   <- sd (d$PC2)
+out3sdPC1_1 <- meanPC1 - 3*sdPC1
+out3sdPC1_2 <- meanPC1 + 3*sdPC1
+out3sdPC2_1 <- meanPC2 - 3*sdPC2
+out3sdPC2_2 <- meanPC2 + 3*sdPC2
+d$outlier_PC1[d$PC1 >= out3sdPC1_1 & d$PC1 <= out3sdPC1_2] <- 0
+d$outlier_PC1[d$PC1 < out3sdPC1_1 | d$PC1 > out3sdPC1_2] <- 1
+d$outlier_PC2[d$PC2 >= out3sdPC2_1 & d$PC2 <= out3sdPC2_2] <- 0
+d$outlier_PC2[d$PC2 < out3sdPC2_1 | d$PC2 > out3sdPC2_2] <- 1
+write.csv(d, paste0(dir.data.pca, "ADNI_PCs_usingBetas_min_age_at_visit_65.csv"))
+```
+
+## PCA plot
+
+```{R pca_plot, eval = TRUE}
+library(ggplot2)
+library(ggrepel)
+### beta values
+byStatus <- plotPCA(
+  dataset = "ADNI: beta values",
+  expSorted_mat = betaOrd_mat,
+  pheno = pheno_df,
+  group_char = "DX",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+bySex <- plotPCA(
+  dataset = "ADNI: beta values",
+  expSorted_mat = betaOrd_mat,
+  pheno = pheno_df,
+  group_char = "PTGENDER",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+pheno_df$PlateNumber <- as.factor(pheno_df$PlateNumber)
+byPLATE <- plotPCA(
+  dataset = "ADNI: beta values",
+  expSorted_mat = betaOrd_mat,
+  pheno = pheno_df,
+  group_char = "PlateNumber",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+```
+
+## Filter samples by PCA 
+```{R save_pca, eval = FALSE}
+noOutliers <- d[which(d$outlier_PC1 == 0 & d$outlier_PC2 == 0), ]
+adni.se <- adni.se[, rownames(noOutliers)]
+saveRDS(adni.se, file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
+writexl::write_xlsx(
+  colData(adni.se) %>% as.data.frame(),
+  path =  file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65_metadata.xlsx")
+)
+```
+
+
+```{R, include = FALSE}
+rm(betaOrd_mat)
+gc()
+```
+
+# Summary after QC steps
+
+## Data and metadata
+```{R}
+adni.se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
+nb.samples.after.pca <- ncol(adni.se)
+nb.probes.after.norm <- nrow(adni.se)
+```
+
+
+## Numbers of samples and probes removed in each step
+
+
+```{R, eval = TRUE, echo=FALSE}
+df.samples <- data.frame(
+  "Number of samples" =  c(
+    nb.samples, 
+    nb.samples.bc.filtered, 
+    nb.samples.before.pca, 
+    nb.samples.after.pca
+  ),
+  "Description" = c(
+    "Number of samples before bisulfiteConversion filter",
+    "Number of samples after bisulfiteConversion filter",
+    "Number of samples before PCA",
+    "Number of samples after PCA"
+  )
+)    
+df.samples 
+```
+
+```{R summary_table, eval = TRUE, echo=FALSE}
+# Create summary table
+df.probes <- data.frame(
+  "Number of probes" = c(
+    nb.probes.before.norm,
+    length(passedProbes),
+    nb.probes.after.norm
+  ),
+  "Description" = c(
+    "total number of probes in raw data",
+    "probes with detection P < 0.01 for all samples",
+    "only probes that start with cg, no crosshyb, no X, no Y, no smoking, mafcut = 0.01"
+  )
+)
+df.probes %>% gt::gt() 
+```
+
+# Checking the data
+
+```{R}
+se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
+```
+
+## show probes not starting with cg are removed
+```{R check_cg}
+grep("cg",rownames(se),invert = T)
+```
+
+## show probes on X/Y are removed
+```{R check_xy}
+c("chrX", "chrY") %in% (seqnames(se) %>% as.character())
+```
+
+## show probes with SNP with MAF >= 0.01 and in the last 5bp were removed (compared with DMRcateData package probes)
+```{R}
+eh <- ExperimentHub()
+snpsall <- eh[["EH3130"]]
+any(snpsall$probe[snpsall$mafs > 0.01 & snpsall$distances <= 5] %>% as.character() %in% rownames(se)) 
+crosshyb <- eh[["EH3129"]]
+any(crosshyb %in% rownames(se))
+XY.probes <- eh[["EH3131"]]
+any(XY.probes %in% rownames(se)) 
+```
+
+## select a few smoking probes, and show they are removed
+```{R}
+any(
+  c("cg16145216", "cg19406367",
+    "cg05603985", "cg10768063",
+    "cg14099685", "cg12513616",
+    "cg04085571", "cg23648810"
+  ) %in% rownames(se)
+)
+```
+
+## show quantiles for each sample is the same
+```{R quantile_box_plot}
+boxplot(assay(se[,1:10]))
+plyr::adply(assay(se[,1:10]),.margins = 2,.fun = function(x){quantile(x)})
+```
+
+
+## check cell type proportions adds up to 1
+```{R}
+table(rowSums(colData(se)[,c("B","NK","CD4T","CD8T","Mono","Neutro","Eosino")] %>% as.matrix()))
+```
+
+## show plate is a factor
+```{R}
+class(se$PlateNumber)
+```
+
+## check outliers samples are not in datset anymore
+```{R}
+outliers <- readr::read_csv(paste0(dir.data.pca, "ADNI_PCs_usingBetas_min_age_at_visit_65.csv"),col_types = readr::cols()) %>%
+  dplyr::filter(outlier_PC1 == 1 | outlier_PC2 == 1) %>% pull(X1) 
+head(outliers)
+head(colnames(se))
+any(outliers %in% colnames(se))
+```
+
+## Low varying probes were removed 
+
+```{R}
+any(rowSums(assay(se) > 0.85) == ncol(se))
+any(rowSums(assay(se) < 0.15) == ncol(se))
+```
+
+## for one sample, check distribution of type I and type II probes
+```{R checking_part2, eval = TRUE}
+library(sm)
+
+annotType <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Manifest
+annotType$designTypeNumeric <- ifelse(annotType$Type == "I",1,2)
+probes <- assay(se)[,1] %>% na.omit()
+sm.density.compare(
+  probes,
+  annotType[names(probes),]$designTypeNumeric
+)
+
+probes <- assay(se)[,2] %>% na.omit()
+sm.density.compare(
+  probes,
+  annotType[names(probes),]$designTypeNumeric
+)
+
+```
+
+
+```{R checking_part5, include = FALSE}
+rm(se)
+```
+
+
+# Analysis
+```{R load_analysis_data, eval = FALSE}
+adni.se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
+```
+
+
+```{R sas, eval = FALSE}
+str_data <- function(adni.se.selected){
+  
+  mvalues <- log2(assay(adni.se.selected)/(1 - assay(adni.se.selected)))
+  mvalues <- mvalues %>% t %>% as.data.frame()
+  mvalues$barcodes <- rownames(mvalues)
+  mvalues.pivot <- pivot_longer(mvalues,!barcodes,names_to = "cpg", values_to = "mvalues")
+  
+  beta <- assay(adni.se.selected)
+  beta <- beta %>% t %>% as.data.frame()
+  beta$barcodes <- rownames(beta)
+  beta.pivot <- pivot_longer(beta,!barcodes,names_to = "cpg", values_to = "beta")
+  
+  
+  #  0 = control, 1 = AD, 2 = MCI
+  pheno <- data.frame(colData (adni.se.selected))
+  pheno$DIAGNOSIS <- factor(pheno$DX, levels = c("CN", "MCI", "Dementia"))
+  pheno <- pheno[!is.na(pheno$DIAGNOSIS),]
+  pheno$DIAGNOSIS_merged <- ifelse(pheno$DIAGNOSIS == "CN", 0, 1)
+  pheno$DIAGNOSIS_merged <- factor(pheno$DIAGNOSIS_merged, levels = c(0, 1))
+  pheno$barcodes <- row.names(pheno)
+  
+  # add indicator for first and last visit
+  pheno$visit <- sub("m",  "", pheno$VISCODE)
+  pheno$PlateNumber <- factor(pheno$PlateNumber)
+  
+  pheno <- pheno %>% dplyr::select(
+    c(barcodes, RID, VISCODE, PTGENDER, age_at_visit, visit, 
+      DIAGNOSIS, DIAGNOSIS_merged, PlateNumber,
+      B, NK,   CD4T, CD8T,   Mono,   Neutro, Eosino
+    )
+  )
+  final <- dplyr::inner_join(pheno,beta.pivot) %>%  dplyr::inner_join(mvalues.pivot)
+  final <- final[order(final$cpg,final$RID,final$VISCODE),]
+  final
+}
+
+for(start in seq(1,nrow(adni.se),by = 1000)){
+  print(start)
+  end <- start + 1000 - 1
+  idx <- which(start == seq(1,nrow(adni.se),by = 1000))
+  if(end > nrow(adni.se)) end <- nrow(adni.se)
+  adni.se.selected <- adni.se[start:end,adni.se$DX %in% c("Dementia","CN")]
+  final <- str_data(adni.se.selected)
+  final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
+  readr::write_csv(
+    final,
+    file = paste0(
+      dir.lw,
+      "AD_CN/DATA_for_SAS_models//",
+      "ADNI_1000_cpgs_",idx,".csv"
+      )
+  )
+}
+
+dir.create("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DATA_for_SAS_models_MCI_CN//")
+for(start in seq(1,nrow(adni.se),by = 1000)){
+  print(start)
+  end <- start + 1000 - 1
+  idx <- which(start == seq(1,nrow(adni.se),by = 1000))
+  if(end > nrow(adni.se)) end <- nrow(adni.se)
+  adni.se.selected <- adni.se[start:end,adni.se$DX %in% c("MCI","CN")]
+  final <- str_data(adni.se.selected)
+  final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
+  readr::write_csv(
+    final,
+    file = paste0(
+      dir.lw,
+      "MCI_CN/DATA_for_SAS_models//",
+      "ADNI_1000_cpgs_",idx,".csv"
+    )
+  )
+}
+```
+
+## Logistic regression model
+
+
+### AD vs CN
+```{R, eval = FALSE}
+files <- dir(
+  file.path(dir.base,"LW/ADNI_GLMM/AD_CN/results/"),
+  full.names = T,
+  recursive = T,
+  pattern = "_[0-9]*.csv"
+)
+length(files)
+glmm <- plyr::adply(
+  .data = files,
+  .margins = 1,
+  .fun = function(f) {
+    readr::read_csv(f,col_types = readr::cols())
+  },.progress = "time",.id = NULL) %>% unique()  
+readr::write_csv(
+  glmm, 
+  file = file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_SAS.cvs")
+)
+```
+
+
+### MCI vs CN
+```{R, eval = FALSE}
+files <- dir(
+  file.path(dir.base,"LW/ADNI_GLMM/MCI_CN/Results/"),
+  full.names = T,
+  recursive = T,
+  pattern = "_[0-9]*.csv"
+)
+length(files)
+glmm <- plyr::adply(
+  .data = files,
+  .margins = 1,
+  .fun = function(f) {
+    readr::read_csv(f,col_types = readr::cols())
+  },.progress = "time",.id = NULL) %>% unique()  
+
+readr::write_csv(
+  glmm, 
+  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_SAS.cvs")
+)
+```
+
+
+## Annotate results
+```{R annotate_functions, eval = FALSE}
+message("o Stating to annotate")
+adni.se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
+load(file.path(dir.data.aux,"great_EPIC_array_annotation.rda"))
+load(file.path(dir.data.aux,"E073_15_coreMarks_segments.rda"))
+load(file.path(dir.data.aux,"meta_analysis_cpgs.rda"))
+
+annotate_results <- function(result, data.se){
+  #result <- result[result$cpg %in% rownames(data.se),]
+  result$fdr <- p.adjust(result$Probt,method = "fdr")
+  result <- cbind(
+    result,
+    rowRanges(data.se)[result$cpg] %>% as.data.frame() %>% dplyr::select(1:4)
+  )
+  result$Islands.UCSC.Relation_to_Island <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Islands.UCSC[result$cpg,"Relation_to_Island"]
+  result$UCSC_RefGene_Name <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Other[result$cpg,"UCSC_RefGene_Name"]       
+  result$UCSC_RefGene_Group <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Other[result$cpg,"UCSC_RefGene_Group"]     
+  
+  result <- dplyr::left_join(result, great,by = c("seqnames","start","end","cpg"))
+  
+  hits <- findOverlaps(rowRanges(data.se)[result$cpg],ChmmModels.gr) %>% as.data.frame()
+  hits$state <- ChmmModels.gr$state[hits$subjectHits]
+  hits$cpg <- result$cpg[hits$queryHits]
+  result <- merge(result, hits[,c("state","cpg")], all.x = TRUE, sort = FALSE, by = "cpg")
+  
+  result$sig.in.brain <- result$cpg %in% brain.meta.analysis.cpgs
+  return(result)
+}
+```
+
+```{R annotate, eval = FALSE}
+logistic_mixed_model_mci_cn <- readr::read_csv(
+  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_SAS.cvs")
+)
+logistic_mixed_model_mci_cn.annnotated <- logistic_mixed_model_mci_cn %>% annotate_results(adni.se)
+
+readr::write_csv(
+  x = logistic_mixed_model_mci_cn.annnotated,
+  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_all_annotated.csv")
+)
+
+logistic_mixed_model_ad_cn <- readr::read_csv( 
+  file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_SAS.cvs")
+)
+logistic_mixed_model_ad_cn.annotated <- logistic_mixed_model_ad_cn %>% annotate_results(adni.se)
+readr::write_csv(
+  x = logistic_mixed_model_ad_cn.annotated,
+  file = file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_all_annotated.cvs"),
+)
+```
+
+```{R read_results, include = FALSE}
+logistic_mixed_model_mci_cn.annnotated <- readr::read_csv(
+  file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_all_annotated.csv")
+)
+logistic_mixed_model_ad_cn.annotated <- readr::read_csv(
+  file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_all_annotated.cvs")
+)
+```
+
+# Calculate inflation factors and Bacon correction for final results
+
+## Auxiliary functions
+
+```{R inflation}
+library(dplyr)
+library(bacon)
+library(GWASTools)
+estimation_of_inflation <- function(data){
+  ### 1. Compute genomic inflation factor before bacon adjustment
+  data$zvalue <- data$Estimate / data$StdErr
+  #data$zvalue <- qnorm(pt(data$tvalue, df))
+  data$chisq <- (data$zvalue) ^ 2
+  # inflation factor - last term is median from chisq distrn with 1 df  
+  inflationFactor <- median(data$chisq,na.rm = TRUE) / qchisq(0.5, 1)
+  print("lambda")
+  print(inflationFactor)
+  # genome-wide sig cpgs
+  #sig <- ifelse(data$`Pr(>|t|)` < 2.4e-7, 1, 0)
+  # table(sig)  # 1 sig
+  ### 2. bacon analysis
+  bc <- bacon(
+    teststatistics = NULL,
+    effectsizes =  data$Estimate,
+    standarderrors = data$StdErr,
+    na.exclude = TRUE
+  )
+  # inflation factor
+  print("lambda.bacon")
+  print(inflation(bc))
+  
+  ### 3. Create final dataset
+  data.with.inflation <- data.frame(
+    data,
+    Estimate.bacon = bacon::es(bc),
+    StdErr.bacon = bacon::se(bc),
+    pValue.bacon = pval(bc),
+    fdr.bacon = p.adjust(pval(bc), method = "fdr"),
+    stringsAsFactors = FALSE
+  )
+  data.with.inflation <- data.with.inflation %>% dplyr::select(-c(zvalue, chisq))
+  return(
+    list(
+      "data.with.inflation" = data.with.inflation,
+      "inflationFactor" =   inflationFactor,
+      "estimatedInflation" = inflation(bc)
+    )
+  )
+}
+
+plot_inflation <- function(data, main){
+  qqPlot(
+    data$data.with.inflation$Probt, ci = TRUE, 
+    main = paste0(main)
+  ) + text(
+    x = 0.5, 
+    y = -log10(min(data$data.with.inflation$Probt)) - 0.5,
+    labels = bquote(lambda == .(format(data$inflationFactor,digits = 4))),
+    pos = 4
+  ) + text(
+    x = 0.5, 
+    y = -log10(min(data$data.with.inflation$Probt)) - 1,
+    labels = bquote(lambda[bacon] == .(format(data$estimatedInflation,digits = 4))),
+    pos = 4
+  )
+}
+```
+
+```{R}
+logistic_mixed_model_ad_cn.with.inflation <- estimation_of_inflation(data = logistic_mixed_model_ad_cn.annotated)
+dim(logistic_mixed_model_ad_cn.with.inflation$data.with.inflation)
+```
+
+```{R, eval = F}
+readr::write_csv(
+  x = logistic_mixed_model_ad_cn.with.inflation$data.with.inflation,
+  file = file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_with_inflation.csv")
+)
+```
+
+```{R}
+plot_inflation(logistic_mixed_model_ad_cn.with.inflation, "ADNI AD vs CN - single cpg -  Logistic regression model")
+
+qqPlot(
+  logistic_mixed_model_ad_cn.with.inflation$data.with.inflation$pValue.bacon, ci = TRUE, 
+  main = paste0("AIBL AD vs CN - single cpg - logistic regression mode - pValue.bacon")
+) 
+
+```
+
+
+
+```{R}
+logistic_mixed_model_mci_cn.with.inflation <- estimation_of_inflation(data = logistic_mixed_model_mci_cn.annnotated)
+dim(logistic_mixed_model_mci_cn.with.inflation$data.with.inflation)
+```
+
+```{R, eval = F}
+readr::write_csv(
+  x = logistic_mixed_model_mci_cn.with.inflation$data.with.inflation,
+  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_with_inflation.csv")
+)
+```
+
+```{R}
+plot_inflation(logistic_mixed_model_mci_cn.with.inflation, "ADNI MCI vs CN - single cpg -  Logistic regression model")
+
+qqPlot(
+  logistic_mixed_model_mci_cn.with.inflation$data.with.inflation$pValue.bacon, ci = TRUE, 
+  main = paste0("AIBL MCI vs CN - single cpg - logistic regression mode - pValue.bacon")
+) 
+
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```

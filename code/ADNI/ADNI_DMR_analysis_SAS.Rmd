@@ -1,0 +1,640 @@
+---
+title: "ADNI dataset - comethDMR"
+author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    highlight: breezedark
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: false
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+```
+
+# Setup
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+library(SummarizedExperiment)
+library(GenomicRanges)
+library(ExperimentHub)
+library(tidyr)
+devtools::load_all("~/Documents/packages/coMethDMR/")
+cohort <- "ADNI"
+dir.base <- "~/Dropbox (BBSR)/Tiago Silva/AD-meta-analysis-blood-samples/"
+dir.data <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation") 
+dir.data.raw <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/idat") 
+dir.data.processed <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/processed") 
+dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
+dir.data.pca <- file.path(dir.data,"/pca_filtering/") 
+dir.results <- file.path(dir.base,"analysis_results",cohort)
+dir.results.lm <- file.path(dir.results,"/Linear_mixed_model")
+dir.results.glm <- file.path(dir.results,"/Logistic_regression_model")
+dir.data.dmr <- file.path(dir.data,"/dmr/") 
+dir.results.dmr <- file.path(dir.base,"analysis_results",cohort,"DMR/Logistic_regression_model")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+
+```{R, eval = FALSE}
+devtools::load_all("~/Documents/packages/coMethDMR/")
+probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "EPIC",clusterType = "regions")
+adni.se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
+adni.se <- adni.se[rownames(adni.se) %in% unique(unlist(probes.cluster.all)),]
+### Find co-methylated clusters
+coMeth_ls <- CoMethAllRegions(
+  dnam = assay(adni.se),      
+  betaToM = TRUE,                   
+  CpGs_ls = probes.cluster.all,
+  arrayType = "EPIC",
+  rDropThresh_num = 0.4,
+  minPairwiseCorr = NULL,
+  method = "spearman",             
+  returnAllCpGs = TRUE,              
+  output = "all",
+  nCores_int = 4,
+  progressbar = TRUE
+)
+save(coMeth_ls,file = file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda"))
+
+```
+
+# Take the median
+```{R, eval = FALSE}
+load(file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda"))
+pheno <- data.frame(colData (adni.se))
+pheno$DIAGNOSIS <- factor(pheno$DX, levels = c("CN", "MCI", "Dementia"))
+pheno$visit <- sub("m",  "", pheno$VISCODE)
+pheno <- pheno %>% dplyr::select(
+  c(barcodes, RID, VISCODE, PTGENDER, age_at_visit, visit, 
+    DIAGNOSIS, PlateNumber,
+    B, NK,   CD4T, CD8T,   Mono,   Neutro, Eosino
+  )
+)
+
+### Take median of probes in each cluster for each sample
+filename <-  file.path(dir.data.dmr,"medianMvals_and_pheno_min_age_at_visit_65.rda")
+mval_mat <- log2( assay(adni.se) / (1 -  assay(adni.se))) %>% as.matrix()
+mval_mat <- mval_mat[rownames(mval_mat) %in% unlist(coMeth_ls$coMeth_ls),]
+if(!file.exists(filename)){
+  medianMval.df <- plyr::ldply(
+    coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))],
+    function(probes){
+      colMedians(mval_mat[as.character(probes),], na.rm = TRUE)
+    },
+    .progress = "time"
+  )
+  medianMval.df$.id <- NULL
+  colnames(medianMval.df) <- colnames(mval_mat)
+  rownames(medianMval.df) <- names(coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))])
+  idx <- rownames(medianMval.df)[order(stringr::str_length(rownames(medianMval.df)),decreasing = T)]
+  medianMval.df <- medianMval.df[idx,]
+  save(medianMval.df,pheno, file = filename)
+} else {
+  load(filename)
+}
+```
+
+```{R, eval = FALSE}
+library(dplyr)
+library(SummarizedExperiment)
+library(ExperimentHub)
+library(ADNIMERGE)
+library(dplyr)
+library(readxl)
+library(tidyr)
+
+filename <-  file.path(dir.data.dmr,"medianMvals_and_pheno_min_age_at_visit_65.rda")
+load(filename)
+
+str_data <- function(medianMval.df, pheno, prefix){
+  
+  mvalues <- medianMval.df %>% t %>% as.data.frame()
+  mvalues$barcodes <- rownames(mvalues)
+  mvalues.pivot <- pivot_longer(mvalues,!barcodes,names_to = "region", values_to = "median.mvalues")
+  
+  median.beta <- 2^medianMval.df/ (1 + 2^medianMval.df)
+  median.beta <- median.beta %>% t %>% as.data.frame()
+  median.beta$barcodes <- rownames(median.beta)
+  beta.pivot <- pivot_longer(median.beta,!barcodes,names_to = "region", values_to = "median.beta")
+  
+  #  0 = control, 1 = AD, 2 = MCI
+  pheno$DIAGNOSIS <- factor(pheno$DIAGNOSIS, levels = c("CN", "MCI", "Dementia"))
+  pheno <- pheno[!is.na(pheno$DIAGNOSIS),]
+  pheno$DIAGNOSIS_merged <- ifelse(pheno$DIAGNOSIS == "CN", 0, 1)
+  pheno$DIAGNOSIS_merged <- factor(pheno$DIAGNOSIS_merged, levels = c(0, 1))
+  pheno$barcodes <- row.names(pheno)
+  # add indicator for first and last visit
+  pheno$visit <- sub("m",  "", pheno$VISCODE)
+  pheno$PlateNumber <- factor(pheno$PlateNumber)
+  
+  print(colnames(pheno))
+  pheno <- pheno %>% dplyr::select(
+    c(barcodes, RID, VISCODE, PTGENDER, age_at_visit, visit, 
+      DIAGNOSIS, DIAGNOSIS_merged, PlateNumber,
+      B, NK,   CD4T, CD8T,   Mono,   Neutro, Eosino
+    )
+  )
+  final <- dplyr::inner_join(pheno,beta.pivot) %>%  dplyr::inner_join(mvalues.pivot)
+  final <- final[order(final$region,final$RID,final$VISCODE),]
+  idx <- order(stringr::str_length(final$region),decreasing = T)
+  final <- final[idx,]
+  final
+}
+
+# break the input into 1000 cpgs per file for SAS
+for(start in seq(1,nrow(medianMval.df),by = 1000)){
+  end <- start + 1000 - 1
+  idx <- which(start == seq(1,nrow(medianMval.df),by = 1000))
+  if(end > nrow(medianMval.df)) end <- nrow(medianMval.df)
+  print(paste0(start,"-",end))
+
+  medianMval.df.selected <- medianMval.df[start:end,pheno$DIAGNOSIS %in% c("Dementia","CN")]
+  final <- str_data(medianMval.df.selected,pheno = pheno, prefix = idx)
+  final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
+  readr::write_csv(
+    final,
+    paste0("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_AD_CN/DATA/",
+                  "ADNI_AD_CN_1000_dmrs_",idx,".csv")
+  )
+}
+
+for(start in seq(1,nrow(medianMval.df),by = 1000)){
+  end <- start + 1000 - 1
+  idx <- which(start == seq(1,nrow(medianMval.df),by = 1000))
+  if(end > nrow(medianMval.df)) end <- nrow(medianMval.df)
+  print(paste0(start,"-",end))
+  
+  medianMval.df.selected <- medianMval.df[start:end,pheno$DIAGNOSIS %in% c("MCI","CN")]
+  final <- str_data(medianMval.df.selected,pheno = pheno)
+  final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
+  readr::write_csv(
+    final,
+    paste0("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_MCI_CN/DATA/",
+                  "ADNI_MCI_CN_1000_dmrs_",idx,".csv")
+  )
+  
+}
+
+files.ad <- dir(
+  "~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_AD_CN/DATA/",
+  full.names = T
+)
+files.mci <- dir(
+  "~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_MCI_CN/DATA/",
+  full.names = T
+)
+# checking data saved
+tab <- plyr::adply(c(files.ad,files.mci),.margins = 1,.fun = function(f){
+  regions <- readr::read_csv(
+    paste0(f),col_types = readr::cols()
+  ) %>% tidyr::separate(col = "region",into = c("chr","start","end"),remove = FALSE)
+  regions$end <- as.numeric(regions$end)
+  regions$start <- as.numeric(regions$start)
+  test.start.end <- all(regions$end - regions$start > 0)
+  test.length <- stringr::str_length(regions$region)[1] - tail(stringr::str_length(regions$region))[1] >= 0
+  return(data.frame("file" = basename(f), "test.start.end" = test.start.end, "test.length" = test.length))
+},.progress = "time")
+
+```
+
+# Get results from SAS
+
+## AD vs CN
+```{R results_from_sas_ad_vs_cn, eval = FALSE}
+library(SummarizedExperiment)
+library(dplyr)
+library(tidyr)
+library(lmerTest)
+
+files <- dir(
+  path = file.path(dir.base,"LW/ADNI_GLMM/DMR_AD_CN/results"),
+  full.names = T,
+  recursive = T,
+  pattern = "dmr_glmm_using_median_beta_[0-9]*.csv"
+)
+length(files)
+glmm <- plyr::adply(
+  files,
+  .margins = 1,
+  .fun = function(f) readr::read_csv(f,col_types = readr::cols()),
+  .progress = "time"
+)
+glmm$X1 <- NULL
+glmm$fdr <- p.adjust(glmm$Probt,method = "fdr")
+glmm$inputRegion_chr <- coMeth_ls$inputRegion_chr[match(glmm$region,names(coMeth_ls$coMeth_ls))]
+glmm$nCoMethRegions_num <- coMeth_ls$nCoMethRegions_num[match(glmm$region,names(coMeth_ls$coMeth_ls))]
+readr::write_csv(glmm, file = file.path(dir.results.dmr,"AD_vs_CN_glmm_using_beta.cvs"))
+```
+
+## MCI vs CN
+```{R results_from_sas_mci_vs_cn, eval = FALSE}
+library(SummarizedExperiment)
+library(dplyr)
+library(tidyr)
+library(lmerTest)
+
+files <- dir(
+  path = file.path(dir.base,"LW/ADNI_GLMM/DMR_MCI_CN/Results"),
+  full.names = T,
+  recursive = T,
+  pattern = "dmr_glmm_using_median_beta_[0-9]*.csv"
+)
+length(files)
+glmm <- plyr::adply(
+  files,
+  .margins = 1,
+  .fun = function(f) {
+    ret <- readr::read_csv(f,col_types = readr::cols())
+    print(f)
+    if("chr2:232571463-23257160" %in% ret$region){
+    print("chr2:232571463-232571602" %in% ret$region)
+      print("chr2:232571463-23257160" %in% ret$region)
+    }
+    ret
+    },
+  .progress = "time"
+)
+glmm$X1 <- NULL
+glmm$fdr <- p.adjust(glmm$Probt, method = "fdr")
+glmm$inputRegion_chr <- coMeth_ls$inputRegion_chr[match(glmm$region,names(coMeth_ls$coMeth_ls))]
+glmm$nCoMethRegions_num <- coMeth_ls$nCoMethRegions_num[match(glmm$region,names(coMeth_ls$coMeth_ls))]
+readr::write_csv(glmm, file = file.path(dir.results.dmr,"MCI_vs_CN_glmm_using_beta.cvs"))
+```
+
+# Annotate results 
+
+## AD vs CN
+
+```{R annotate_ad, eval = FALSE}
+results <- readr::read_csv(file.path(dir.results.dmr,"AD_vs_CN_glmm_using_beta.cvs"))
+load(file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda"))
+
+doParallel::registerDoParallel(cores = 20)
+regions <- coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))]
+regions <- regions[names(regions) %in% results$region]
+regions.collapsed <- plyr::llply(
+  regions,
+  .fun =  function(x) paste(x,collapse = ";"),
+  .parallel = F, 
+  .progress = "time"
+)
+results$probeInRegion <- plyr::aaply(
+  results$region,.margins = 1,
+  .fun = function(x){
+    ret <- regions.collapsed[match(x,names(regions.collapsed))]; 
+    if(is.null(ret)) ret <- NA; 
+    ret
+  },.progress = "time") %>% as.character()
+results$aux <- results$region
+results <- results %>% separate(col = "aux",into = c("seqnames","start","end"),remove = TRUE)
+results$start <- as.numeric(results$start)
+results$end <- as.numeric(results$end)
+results.ad <- results
+```
+
+## MCI vs CN
+
+```{R add_probe_in_region, eval = FALSE}
+results <- readr::read_csv(file.path(dir.results.dmr,"MCI_vs_CN_glmm_using_beta.cvs"))
+load(file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda"))
+
+doParallel::registerDoParallel(cores = 20)
+regions <- coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))]
+regions <- regions[names(regions) %in% results$region]
+regions.collapsed <- plyr::llply(regions,.fun =  function(x) paste(x,collapse = ";"),.parallel = TRUE, .progress = "time")
+results$probeInRegion <- plyr::aaply(
+  results$region,.margins = 1,
+  .fun = function(x){
+    ret <- regions.collapsed[match(x,names(regions.collapsed))]; 
+    if(is.null(ret)) ret <- NA; 
+    ret
+  },.progress = "time") %>% as.character()
+results$aux <- results$region
+results <- results %>% separate(col = "aux",into = c("seqnames","start","end"),remove = TRUE)
+results$start <- as.numeric(results$start)
+results$end <- as.numeric(results$end)
+results.mci <- results
+```
+
+## Create GREAT annotation for comethylated regions
+```{R great_creation, eval = FALSE}
+library(rGREAT)
+load(file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda"))
+regions <- coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))]
+regions.gr <- gsub("EPIC_Gene_3_200.|EPIC_InterGene_3_200.","",names(regions)) %>% 
+  as.data.frame %>% separate(col = ".",into = c("chr","start","end")) %>% 
+  makeGRangesFromDataFrame()
+
+regionsToGenes.list <- plyr::alply(seq(1,length(regions.gr),10000),.margins = 1,.fun = function(start){
+  end <- (start + 10000 - 1)
+  if(end > length(regions.gr)) end <- length(regions.gr)
+  job <- submitGreatJob(regions.gr[start:end], species = "hg19")
+  Sys.sleep(70)
+  data.frame(plotRegionGeneAssociationGraphs(job))
+},.progress = "time")
+regionsToGenes <- plyr::rbind.fill(regionsToGenes.list)
+
+regionsToGenes$GREAT_annotation <- ifelse(
+  regionsToGenes$distTSS > 0,
+  paste0(regionsToGenes$gene, " (+", regionsToGenes$distTSS, ")"),
+  paste0(regionsToGenes$gene, " (", regionsToGenes$distTSS, ")"))
+regionsToGenes <- regionsToGenes[
+  ,c("seqnames", "start", "end", "GREAT_annotation")
+]
+great <- regionsToGenes %>%
+  group_by(seqnames, start, end) %>%
+  mutate(GREAT_annotation = paste0(GREAT_annotation,collapse = ";")) %>% unique()
+save(great, file = file.path(dir.data.aux,"great_coMethDMR_EPIC_array_annotation_ADNI.rda"))
+```
+
+## Add annotation to input cpgs
+```{R annotate, eval = FALSE}
+load(file.path(dir.data.aux,"great_coMethDMR_EPIC_array_annotation_ADNI.rda"))
+load(file.path(dir.data.aux,"E073_15_coreMarks_segments.rda"))
+
+add_annotation <- function(result){
+  
+  result$fdr <- p.adjust(result$Probt,method = "fdr")
+  message("Annotating E073_15_coreMarks_segments")
+  result.gr <- result %>% makeGRangesFromDataFrame(
+    start.field = "start",
+    end.field = "end",
+    seqnames.field = "seqnames"
+  )
+  hits <- findOverlaps(result.gr, ChmmModels.gr) %>% as.data.frame()
+  hits$state <- ChmmModels.gr$state[hits$subjectHits]
+  hits$region <- result$region[hits$queryHits]
+  result$E073_15_coreMarks_segments_state <- hits$state[match(result$region,hits$region)]
+  
+  message("Annotating GREAT")
+  
+  result <- dplyr::left_join(result, great,by = c("seqnames","start","end"))
+  
+  message("Annotating Island")
+  
+  result$chrom <- result$seqnames
+  result <- AnnotateResults(result, arrayType = "EPIC", nCores_int = 6)
+  result$chrom <-  result$chr <- NULL
+  result <- result[order(result$Probt),]
+  return(result)
+  
+}
+
+results.ad.annotated <-  results.ad %>% add_annotation
+
+readr::write_csv(
+  results.ad.annotated  %>% as.data.frame(),
+  file =  file.path(dir.results.dmr,"DMR_AD_vs_CN_results_annotated.csv")
+)
+
+results.mci.annotated <-  results.mci %>% add_annotation
+
+readr::write_csv(
+  results.mci.annotated  %>% as.data.frame(),
+  file =  file.path(dir.results.dmr,"DMR_MCI_vs_CN_results_annotated.csv")
+)
+
+
+results.mci.annotated.sig <- results.mci.annotated %>% filter(Probt < 0.05) 
+results.ad.annotated.sig <- results.ad.annotated %>% filter(Probt < 0.05) 
+
+
+readr::write_csv(
+  results.ad.annotated.sig  %>% as.data.frame(),
+  file = file.path(dir.results.dmr, "DMR_AD_vs_CN_results_annotated_pvalue_cut_off_0_05.csv")
+)
+
+readr::write_csv(
+  results.mci.annotated.sig  %>% as.data.frame(),
+  file = file.path(dir.results.dmr, "DMR_MCI_vs_CN_results_annotated_pvalue_cut_off_0_05.csv")
+)
+
+```
+
+
+
+
+# Calculate inflation factors and Bacon correction for final results
+
+## Auxiliary functions
+
+```{R inflation}
+library(dplyr)
+library(bacon)
+library(GWASTools)
+estimation_of_inflation <- function(data){
+  ### 1. Compute genomic inflation factor before bacon adjustment
+  data$zvalue <- data$Estimate / data$`Std. Error`
+  data$chisq <- (data$zvalue) ^ 2
+  # inflation factor - last term is median from chisq distrn with 1 df  
+  inflationFactor <- median(data$chisq,na.rm = TRUE) / qchisq(0.5, 1)
+  print("lambda")
+  print(inflationFactor)
+  ### 2. bacon analysis
+  bc <- bacon(
+    teststatistics = NULL,
+    effectsizes =  data$Estimate,
+    standarderrors = data$`Std. Error`,
+    na.exclude = TRUE
+  )
+  # inflation factor
+  print("lambda.bacon")
+  print(inflation(bc))
+  
+  ### 3. Create final dataset
+  data.with.inflation <- data.frame(
+    data,
+    Estimate.bacon = bacon::es(bc),
+    StdErr.bacon = bacon::se(bc),
+    pValue.bacon = pval(bc),
+    fdr.bacon = p.adjust(pval(bc), method = "fdr"),
+    stringsAsFactors = FALSE
+  )
+  data.with.inflation <- data.with.inflation %>% dplyr::select(-c(zvalue, chisq))
+  return(
+    list(
+      "data.with.inflation" = data.with.inflation,
+      "inflationFactor" =   inflationFactor,
+      "estimatedInflation" = inflation(bc)
+    )
+  )
+}
+
+plot_inflation <- function(data, main){
+  qqPlot(
+    data$data.with.inflation$Pr...t.., ci = TRUE, 
+    main = paste0(main)
+  ) + text(
+    x = 0.5, 
+    y = -log10(min(data$data.with.inflation$Pr...t..)) - 0.5,
+    labels = bquote(lambda == .(format(data$inflationFactor,digits = 4))),
+    pos = 4
+  ) + text(
+    x = 0.5, 
+    y = -log10(min(data$data.with.inflation$Pr...t..)) - 1,
+    labels = bquote(lambda[bacon] == .(format(data$estimatedInflation,digits = 4))),
+    pos = 4
+  )
+}
+```
+
+
+## AD vs CN
+```{R}
+logistic_mixed_model_ad_cn <- readr::read_csv(
+  col_types = readr::cols(),
+  file =  file.path(dir.results.dmr,"DMR_AD_vs_CN_results_annotated.csv")
+)
+```
+
+```{R}
+logistic_mixed_model_ad_cn$`Std. Error` <- logistic_mixed_model_ad_cn$StdErr 
+logistic_mixed_model_ad_cn$Pr...t.. <- logistic_mixed_model_ad_cn$Probt
+logistic_mixed_model_ad_cn$StdErr  <-  logistic_mixed_model_ad_cn$Probt <- NULL
+logistic_mixed_model_ad_cn.with.inflation <- estimation_of_inflation(data = logistic_mixed_model_ad_cn)
+dim(logistic_mixed_model_ad_cn.with.inflation$data.with.inflation)
+```
+
+```{R, eval = F}
+readr::write_csv(
+  x = logistic_mixed_model_ad_cn.with.inflation$data.with.inflation,
+  file = file.path(dir.results.dmr,"DMR_AD_vs_CN_results_annotated_with_inflation.csv")
+)
+```
+
+```{R}
+plot_inflation(logistic_mixed_model_ad_cn.with.inflation, "ADNI DMR GLMM - AD vs CN")
+```
+
+
+## MCI vs CN
+```{R}
+logistic_mixed_model_mci_cn <- readr::read_csv(
+  col_types = readr::cols(),
+  file =  file.path(dir.results.dmr,"DMR_MCI_vs_CN_results_annotated.csv")
+)
+```
+
+```{R}
+logistic_mixed_model_mci_cn$`Std. Error` <- logistic_mixed_model_mci_cn$StdErr 
+logistic_mixed_model_mci_cn$Pr...t.. <- logistic_mixed_model_mci_cn$Probt
+logistic_mixed_model_mci_cn$StdErr  <-  logistic_mixed_model_mci_cn$Probt <- NULL
+logistic_mixed_model_mci_cn.with.inflation <- estimation_of_inflation(data = logistic_mixed_model_mci_cn)
+dim(logistic_mixed_model_mci_cn.with.inflation$data.with.inflation)
+```
+
+```{R, eval = F}
+readr::write_csv(
+  x = logistic_mixed_model_mci_cn.with.inflation$data.with.inflation,
+  file = file.path(dir.results.dmr,"DMR_MCI_vs_CN_results_annotated_with_inflation.csv")
+)
+```
+
+```{R}
+plot_inflation(logistic_mixed_model_ad_cn.with.inflation, "ADNI DMR GLMM - MCI vs CN")
+```
+
+
+
+# Top 10 regions vs single probes
+
+## AD vs CN
+```{R}
+sinlge.cpg.ad.vs.cn <- readr::read_csv( 
+  file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_with_inflation.csv"),
+  col_types = readr::cols()
+)
+results.ad.annotated.sig <- readr::read_csv(
+  file.path(dir.results.dmr, "DMR_AD_vs_CN_results_annotated_with_inflation.csv"),
+    col_types = readr::cols()
+  )
+top10 <- results.ad.annotated.sig[1:10,]
+```
+
+```{r loop_print, results = 'asis'}
+plyr::a_ply(top10,.margins = 1,.fun = function(x){
+  cpgs <- unlist(strsplit(x$probeInRegion,";"))
+  cat(paste0("\n### Region ",x$region,"\n"))
+  print(x  %>% gt::gt())
+  print(
+    sinlge.cpg.ad.vs.cn[sinlge.cpg.ad.vs.cn$cpg %in% cpgs,] %>% gt::gt() %>%
+      gt::tab_header(
+        title = paste0(x$.id)
+      )
+  )
+  
+})
+```
+
+```{R, include = FALSE}
+top10DMR_cpgs <- plyr::alply(top10,.margins = 1,.fun = function(x){
+  cpgs <- unlist(strsplit(x$probeInRegion,";"))
+    sinlge.cpg.ad.vs.cn[sinlge.cpg.ad.vs.cn$cpg %in% cpgs,]
+})
+names(top10DMR_cpgs) <- gsub(":|\\.|-","_",top10$region)
+
+writexl::write_xlsx(
+  x = c(list("top10_DMRs" = top10),top10DMR_cpgs),
+  path =   file.path(dir.results.dmr, "top10_DMR_AD_vs_CN_results_annotated_pvalue_cut_off_0_05.xlsx")
+)
+```
+
+## MCI vs CN
+```{R}
+sinlge.cpg.mci.vs.cn <- readr::read_csv(
+  file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_with_inflation.csv"),
+  col_types = readr::cols()
+)
+```
+
+```{R}
+results.mci.annotated.sig <- readr::read_csv(
+  file.path(dir.results.dmr, "DMR_MCI_vs_CN_results_annotated_with_inflation.csv"),
+    col_types = readr::cols()
+  )
+top10 <- results.mci.annotated.sig[1:10,]
+```
+
+```{r, results = 'asis'}
+plyr::a_ply(top10,.margins = 1,.fun = function(x){
+  cpgs <- unlist(strsplit(x$probeInRegion,";"))
+  cat(paste0("\n### Region ",x$region,"\n"))
+  print(x  %>% gt::gt())
+  print(
+    sinlge.cpg.mci.vs.cn[sinlge.cpg.mci.vs.cn$cpg %in% cpgs,] %>% gt::gt() %>%
+      gt::tab_header(
+        title = paste0(x$.id)
+      )
+  )
+})
+```
+
+```{R, include = FALSE}
+top10DMR_cpgs <- plyr::alply(top10,.margins = 1,.fun = function(x){
+  cpgs <- unlist(strsplit(x$probeInRegion,";"))
+    sinlge.cpg.mci.vs.cn[sinlge.cpg.mci.vs.cn$cpg %in% cpgs,]
+})
+names(top10DMR_cpgs) <- gsub(":|\\.|-","_",top10$region)
+
+writexl::write_xlsx(
+  x = c(list("top10_DMRs" = top10),top10DMR_cpgs),
+  path = file.path(dir.results.dmr, "top10_DMR_MCI_vs_CN_results_annotated_pvalue_cut_off_0_05.xlsx")
+)
+
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```

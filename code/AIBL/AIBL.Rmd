@@ -27,6 +27,8 @@ knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
 library(dplyr)
 library(SummarizedExperiment)
 library(ExperimentHub)
+library(minfi)
+library(wateRmelon)
 cohort <- "AIBL"
 dir.base <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/"
 dir.data <- file.path(dir.base,"datasets/",cohort,"/") 

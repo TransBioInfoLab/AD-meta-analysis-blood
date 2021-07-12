@@ -1,7 +1,10 @@
 ---
-title: "AIBL dataset"
-author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
-date: "`r Sys.Date()`"
+title: "Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease"
+subtitle: 'AIBL dataset'
+author:
+  - Tiago Chedraoui Silva^[University of Miami]
+  - Lily Wang^[University of Miami]
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   rmarkdown::html_document:
     highlight: breezedark

@@ -1,0 +1,285 @@
+---
+title: "Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease"
+author:
+  - Tiago Chedraoui Silva^[University of Miami]
+  - Lily Wang^[University of Miami]
+output: 
+  prettydoc::html_pretty:
+    theme: leonids
+    toc: false
+    df_print: paged
+    code_download: false
+    toc_depth: 3
+    number_sections: false
+editor_options:
+  chunk_output_type: inline    
+vignette: >
+    %\VignetteIndexEntry{Consensus clustering}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "../../")
+library(gt)
+library(dplyr)
+library(SummarizedExperiment)
+library(ggpubr)
+dir.data <- file.path("datasets/") 
+# sc' stands for 'screen' and is usually about a month before baseline 'bl'.
+# “f” as a VISCODE means that the person failed the screening
+```
+
+# ADNI after PCA filtering
+
+```{R, include = FALSE}
+adni.se <- readRDS(
+  file.path(
+    dir.data,
+    "ADNI/data/DNA_methylation/pca_filtering/ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"
+  )
+)
+clinical <- colData(adni.se)  %>% as.data.frame
+
+aux <- clinical %>% 
+    dplyr::filter(!is.na(RID)) %>% 
+    dplyr::group_by(RID) %>% 
+    dplyr::summarize(
+        VISCODE = VISCODE,
+        DX = DX,
+        Visit_number =  match(VISCODE,VISCODE[
+          order(gsub("bl","01",gsub("m","",VISCODE)) %>% na.omit() %>% as.numeric)
+          ] %>% unique)
+    ) 
+clinical <- clinical %>% as.data.frame %>% left_join(aux)
+clinical.adni <- clinical
+```
+
+
+```{R}
+tab1 <- aux %>% 
+    dplyr::filter(RID %in% aux$RID[aux$Visit_number == 2]) %>% 
+    dplyr::group_by(RID) %>% 
+    dplyr::summarize(
+        First_visit = DX[Visit_number == 1],
+        Second_visit = DX[Visit_number == 2]
+    ) 
+table(tab1$First_visit,tab1$Second_visit)
+tab2 <- aux %>% 
+    dplyr::filter(RID %in% aux$RID[aux$Visit_number != max(Visit_number)]) %>% 
+    dplyr::group_by(RID) %>% 
+    dplyr::summarize(
+        First_visit = DX[Visit_number == 1],
+        Last_visit = DX[Visit_number == max(Visit_number)]
+    ) 
+table(tab2$First_visit,tab2$Last_visit)
+x <- tidyr::spread(aux[,c(1,3,4)],"Visit_number","DX")
+tab3 <- aux %>% 
+   dplyr::filter(RID %in% aux$RID[aux$Visit_number == 2]) %>% 
+    dplyr::group_by(RID) %>% 
+    dplyr::summarize(
+        Diff_time_visit2_visit1 = (gsub("bl","0",gsub("m","",VISCODE[Visit_number == 2])) %>% as.numeric) - (gsub("bl","0",gsub("m","",VISCODE[Visit_number == 1])) %>% as.numeric)
+    ) 
+ggbarplot(plyr::count(
+  tab3$Diff_time_visit2_visit1),
+  x = "x",
+  y = "freq",
+  xlab = "Time difference in months", 
+  title = "Diff time second and first visit for DNAm",
+  fill = "black"
+)
+
+tab4 <- aux %>% 
+    dplyr::group_by(RID) %>% 
+    dplyr::summarize(
+        Diff_time_last_visit_visit1 = (
+          gsub("bl","0",gsub("m","",VISCODE[Visit_number == max(Visit_number)])) %>% as.numeric) - (gsub("bl","0",gsub("m","",VISCODE[Visit_number == 1])) %>% as.numeric)
+    ) 
+
+ggbarplot(
+    plyr::count(tab4$Diff_time_last_visit_visit1)[-1,],
+    x = "x",y = "freq",
+    xlab = "Time difference in months", 
+    fill = "black",
+    title = paste0(
+        "Difference time last and first visit for DNAm.",
+        "\nMean = ", formatC(mean(tab4$Diff_time_last_visit_visit1),digits = 4), " months ",
+        "\nMedian = ", formatC(median(tab4$Diff_time_last_visit_visit1),digits = 2), " months "
+    )
+)
+
+```
+
+
+## ADNI clinical table
+
+```{r adni,message=FALSE, echo=FALSE}
+by.group <- clinical %>% as.data.frame  %>% 
+  dplyr::filter(Visit_number == 1) %>% 
+  dplyr::filter(!is.na(DX)) %>% 
+  dplyr::filter(DX != "MCI") %>% 
+  dplyr::group_by(DX) %>% 
+  dplyr::summarize(
+    "Diagnosis Groups" =  paste0(
+      unique(DX)  %>% 
+        gsub(x = ., pattern = "CN",replacement = "Cognitively Normal") %>%
+        gsub(x = ., pattern = "MCI",replacement = "Mild Cognitive Impairment") %>% 
+        gsub(x = ., pattern = "Dementia",replacement = "Alzheimer's disease") ,
+      " (n=",n(),")"
+    ),
+    "Age in years Mean (SD)" = paste0(
+      format(mean(age_at_visit,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(age_at_visit,na.rm = T),digits = 3),")"
+    ), 
+    "Number of Males (%)" = paste0(sum(PTGENDER == "Male")," (",format(100 * sum(PTGENDER == "Male")/length(PTGENDER),digits = 4),"%)"),             
+    "Number of Females (%)" = paste0(sum(PTGENDER == "Female")," (",format(100 * sum(PTGENDER == "Female")/length(PTGENDER),digits = 4),"%)"),             
+    "Number of APOE e4 positive (%)" = paste0(sum(APOE4 > 0)," (",format(100 * sum(APOE4 > 0)/length(APOE4),digits = 4),"%)"),
+    "Means years of education Mean (SD)" = paste0(
+      format(mean(PTEDUCAT,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(PTEDUCAT,na.rm = T),digits = 3),")"
+    ), 
+  )
+
+all <- clinical %>% as.data.frame  %>% 
+  dplyr::filter(Visit_number == 1) %>% 
+  dplyr::filter(!is.na(DX)) %>% 
+  dplyr::filter(DX != "MCI") %>% 
+  dplyr::summarize(
+    "Diagnosis Groups" =  paste0("All (n=",n(),")"),
+    "Age in years Mean (SD)" = paste0(
+      format(mean(age_at_visit,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(age_at_visit,na.rm = T),digits = 3),")"
+    ), 
+    "Number of Males (%)" = paste0(
+      sum(PTGENDER == "Male")," (",
+      format(
+        100 * sum(PTGENDER == "Male")/length(PTGENDER),
+        digits = 4),
+      "%)"
+    ),             
+    "Number of Females (%)" = paste0(
+      sum(PTGENDER == "Female")," (",
+      format(100 * sum(PTGENDER == "Female")/length(PTGENDER),digits = 4),
+      "%)"
+      ),             
+    "Number of APOE e4 positive (%)" = paste0(
+      sum(APOE4 > 0)," (",format(100 * sum(APOE4 > 0)/length(APOE4),digits = 4),"%)"),
+    "Means years of education Mean (SD)" = paste0(
+      format(mean(PTEDUCAT,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(PTEDUCAT,na.rm = T),digits = 3),")"
+    ), 
+  )
+
+
+```
+
+```{r adni_all,message=FALSE, echo=FALSE}
+rbind(by.group[,-1],all) %>% gt() %>%
+  tab_header(
+    title = "ADNI patient cohort selected for DNA methylation analysis",
+    subtitle = paste0(
+      "Patient cohort (N=",clinical %>% dplyr::filter(!is.na(DX)) %>% 
+    dplyr::filter(DX != "MCI") %>%  dplyr::filter(Visit_number == 1) %>%  dplyr::pull(RID) %>% unique %>% length(),"; ",
+      clinical %>% dplyr::filter(!is.na(DX)) %>% 
+    dplyr::filter(DX != "MCI") %>% dplyr::pull(RID) %>% length()," DNA samples)"
+    )
+  )
+```
+
+```{r adni_visits, echo=FALSE, message=FALSE}
+aux <- clinical %>% as.data.frame  %>% 
+  dplyr::filter(clinical$Visit_number == 1) 
+aux <- aux[,c("DX","RID")]
+colnames(aux)[1] <- "DX_first_visit"
+clinical <- left_join(clinical,aux)
+visit <- table(clinical$DX_first_visit,clinical$Visit_number) %>% as.data.frame.matrix 
+colnames(visit) <- paste0("Number at visit ",colnames(visit))
+rownames(visit) <- rownames(visit) %>% 
+  gsub(x = ., pattern = "CN",replacement = "Cognitively Normal") %>%
+  gsub(x = ., pattern = "MCI",replacement = "Mild Cognitive Impairment") %>% 
+  gsub(x = ., pattern = "AD",replacement = "Alzheimer's disease") 
+visit  %>% dplyr::slice(c(1,2)) %>%  gt(rownames_to_stub = TRUE,groupname_col = "D") %>%  tab_header(
+    title = "ADNI patient cohort selected for DNA methylation analysis"
+) %>% tab_row_group(
+    label = "Diagnosis at first visit",
+    rows =  everything()
+)
+```
+
+
+```{R save_excel, include = FALSE}
+# save as excel table
+writexl::write_xlsx(
+  list(
+    "Supp Table 1 (a)" = rbind(by.group[,-1],all),
+    "Supp Table 1 (b)" = visit  %>% dplyr::slice(c(1,2)) 
+  ),
+  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/tables/Supp_Table_1.xlsx"
+)
+```
+
+# AIBL after PCA filtering
+
+```{R echo = FALSE}
+aibl.se <- readRDS(
+  file.path(dir.data,"AIBL/pca_filtering/AIBL_QNBMIQ_PCfiltered_age_at_least_65.RDS")
+)
+clinical <- colData(aibl.se)
+```
+
+## AIBL clinical table
+
+```{r aibl,message=FALSE, echo=FALSE}
+clinical$DX <- clinical$`disease status:ch1`
+clinical$PTGENDER <- clinical$`gender:ch1`
+
+aibl.by.groups <- clinical %>% as.data.frame  %>% 
+  dplyr::group_by(DX) %>% 
+   dplyr::filter(DX != "Mild Cognitive Impairment") %>% 
+  dplyr::summarize(
+    "Diagnosis Groups" =  paste0(
+      unique(DX)  %>% 
+        gsub(x = ., pattern = "CN",replacement = "Cognitively Normal") %>%
+        gsub(x = ., pattern = "MCI",replacement = "Mild Cognitive Impairment") %>% 
+        gsub(x = ., pattern = "Dementia",replacement = "Alzheimer's disease") ,
+      " (n=",n(),")"
+    ),
+    "Age in years Mean (SD)" = paste0(
+      format(mean(age.pred.Elastic_Net,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(age.pred.Elastic_Net,na.rm = T),digits = 3),")"
+    ), 
+    "Number of Males (%)" = paste0(sum(PTGENDER == "Male")," (",format(100 * sum(PTGENDER == "Male")/length(PTGENDER),digits = 4),"%)"),
+    "Number of Females (%)" = paste0(sum(PTGENDER == "Female")," (",format(100 * sum(PTGENDER == "Female")/length(PTGENDER),digits = 4),"%)")
+  ) %>% dplyr::select(2:5) 
+
+
+aibl.all <-  clinical %>% as.data.frame  %>% 
+  dplyr::filter(DX != "Mild Cognitive Impairment") %>% 
+  dplyr::summarize(
+    "Diagnosis Groups" =  paste0("All (n=",n(),")"
+    ),
+    "Age in years Mean (SD)" = paste0(
+      format(mean(age.pred.Elastic_Net,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(age.pred.Elastic_Net,na.rm = T),digits = 3),")"
+    ), 
+    "Number of Males (%)" = paste0(sum(PTGENDER == "Male")," (",format(100 * sum(PTGENDER == "Male")/length(PTGENDER),digits = 4),"%)"),
+    "Number of Females (%)" = paste0(sum(PTGENDER == "Female")," (",format(100 * sum(PTGENDER == "Female")/length(PTGENDER),digits = 4),"%)")
+  ) 
+
+rbind(aibl.by.groups,aibl.all) %>%  gt() %>%
+  tab_header(
+    title = "AIBL patient cohort selected for DNA methylation analysis",
+    subtitle = paste0(
+      "Patient cohort (N=",  clinical  %>% as.data.frame %>%  
+        dplyr::filter(DX != "Mild Cognitive Impairment") %>%  dplyr::pull(geo_accession) %>% unique %>% length(),"; ",
+      clinical  %>% as.data.frame %>%  dplyr::filter(DX != "Mild Cognitive Impairment") %>% nrow()," DNA samples)"
+    )
+  )
+```

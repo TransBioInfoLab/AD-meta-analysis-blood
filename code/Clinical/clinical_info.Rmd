@@ -285,3 +285,9 @@ rbind(aibl.by.groups,aibl.all) %>%  gt() %>%
     )
   )
 ```
+
+
+# Session information
+```{R}
+devtools::session_info()
+```

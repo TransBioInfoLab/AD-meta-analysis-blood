@@ -1,0 +1,294 @@
+---
+title: "Meta-analysis dataset - using bacon inflation- and bias-corrected P-values"
+author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    highlight: breezedark
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: false
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline     
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+# Main libraries and configuration
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+library(ExperimentHub)
+library(GenomicRanges)
+library(tidyr)
+```
+
+# Meta-analysis of Genomic Regions: Single-cpg
+
+## Paths
+```{R}
+dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
+dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
+dir.results <- file.path(dir.base,"analysis_results")
+dir.result.meta.analysis <- file.path(dir.results, "meta_analysis/ordinal_logistic_regression_model/")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+## Import datasets and pre-process for each cohort 
+
+```{R, eval = TRUE}
+library(dplyr)
+results.files <- dir(
+  path = dir.results,
+  pattern = "with_inflation.csv",
+  recursive = TRUE,
+  full.names = TRUE,
+  ignore.case = TRUE
+)
+
+results.files <- results.files[grep("olrm",results.files,invert = F)]
+results.files <- results.files[grep("DMR",results.files,invert = T)]
+basename(results.files)
+```
+
+## Create a merged final dataset 
+```{R, eval = FALSE}
+
+list.of.results <- plyr::alply(results.files,.margins = 1,.fun = function(f){
+  data <- readr::read_csv(f, col_types = readr::cols())
+  dataset <- paste0(
+    stringr::str_extract(basename(f),"AIBL|ADNI|AD_vs_CN|MCI_vs_CN")
+  )
+  data <- data %>% dplyr::select(contains(c("cpg","bacon","fdr","Probt","StdErr","tValue","z.value","Pr...z..","t.value","Error","Estimate","Pr...t..")))
+  data <- data %>% rename_with(
+    .fn = function(x) {
+      paste0(dataset,"_",x)
+    },
+    contains(c("bacon","fdr","tValue","Probt","z.value","Pr...z..","t.value","StdErr","Error","Estimate","Pr...t.."))
+  )
+  data  
+})
+names(list.of.results) <- paste0(
+  stringr::str_extract(basename(results.files),"AIBL|ADNI|AD_vs_CN|MCI_vs_CN")
+)
+
+multi_cohorts <- Reduce(
+  function(x,y, ...) inner_join(
+    x, 
+    y, 
+    ..., 
+    by = "cpg"
+  ),
+  list.of.results
+) %>% unique()
+
+lapply(list.of.results,dim)
+dim(multi_cohorts)
+```
+
+## Meta analysis 
+```{R, eval = FALSE}
+library(meta)
+
+doParallel::registerDoParallel(cores = 5)
+calculate_meta_analysis <- function(multi_cohorts){
+  plyr::adply(
+    .data = multi_cohorts, 
+    .margins = 1, 
+    .fun =  function(row){
+      
+      est <- row[grep("Estimate.bacon",colnames(row))] %>% as.numeric
+      
+      direction <-  paste(
+        ifelse(
+          is.na(est), ".",
+          ifelse(est > 0, "+", "-")
+        ), collapse = "")
+      
+      se <- row[grep("StdErr.bacon",colnames(row))] %>% as.numeric
+      cohort <- gsub("_StdErr.bacon","",grep("StdErr.bacon",colnames(row),value = T))
+      df <- data.frame(
+        cohort = cohort,
+        est = est,
+        se = se,
+        stringsAsFactors = FALSE
+      )
+      
+      f <- metagen(
+        TE = est,
+        seTE = se,
+        data = df
+      )
+      
+      tibble::tibble(
+        cpg = row$cpg,
+        estimate.bacon = f$TE.fixed,
+        se.bacon = f$seTE.fixed,
+        pVal.fixed.bacon = f$pval.fixed,
+        pVal.random.bacon = f$pval.random,
+        pValQ.bacon = f$pval.Q,
+        direction.bacon = direction
+      )
+    }  , .progress = "time",
+    .parallel = TRUE,
+    .id = NULL
+  )
+}
+calculate_meta_analysis_pvalue <- function(meta_df, pvalue.type = "fixed"){
+    ### create final pVal
+  if (pvalue.type == "fixed"){
+    meta_df$pVal.final.bacon <- meta_df$pVal.fixed.bacon
+  } else if (pvalue.type == "random"){
+    meta_df$pVal.final.bacon <- meta_df$pVal.random.bacon
+  } else {
+    print("both")
+    meta_df$pVal.final.bacon <- ifelse(
+        meta_df$pValQ.bacon > 0.05, meta_df$pVal.fixed.bacon, meta_df$pVal.random.bacon
+    )
+  }
+  ### calculate FDR
+  meta_df$fdr.bacon <- p.adjust(meta_df$pVal.final.bacon, method = "fdr")
+  ### order meta_df
+  meta_final_df <- meta_df[, c(grep("_",colnames(meta_df),invert = T),
+                               grep("_",colnames(meta_df),invert = F))
+  ]
+  meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final.bacon),]
+  return(meta_final_ordered_df)
+}
+```
+
+```{R meta_ad, eval = FALSE}
+meta_df <- multi_cohorts %>% calculate_meta_analysis()
+meta_df_fixed_effect <- meta_df %>% calculate_meta_analysis_pvalue(pvalue.type = "fixed")
+
+readr::write_csv(
+  meta_df_fixed_effect  %>% as.data.frame(),
+  file = paste0(dir.result.meta.analysis, "meta_analysis_olrm_fixed_effect_ADNI_and_AIBL_single_cpg.csv")
+)
+
+```
+
+## Add annotation to input cpgs
+```{R, eval = FALSE}
+load(file.path(dir.data.aux,"meta_analysis_cpgs.rda"))
+great_HM450 <- get(load(file.path(dir.data.aux,"great_HM450_array_annotation.rda")))
+great_EPIC <- get(load(file.path(dir.data.aux,"great_EPIC_array_annotation.rda")))
+great <- unique(rbind(great_HM450,great_EPIC))
+load(file.path(dir.data.aux,"E073_15_coreMarks_segments.rda"))
+infinium.annot <- readxl::read_xlsx(file.path(dir.data.aux,"infinium-methylationepic-v-1-0-b5-manifest-file.xlsx"),skip = 7)
+
+add_annotation <- function(result){
+  result$cpg_in_EPIC <- result$cpg %in% rownames(IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Locations)
+  result$cpg_in_hm450 <- result$cpg %in% rownames(IlluminaHumanMethylation450kanno.ilmn12.hg19::Locations)
+
+  message("Creating aux objects")
+  Locations <- unique(rbind(
+    IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Locations,
+    IlluminaHumanMethylation450kanno.ilmn12.hg19::Locations
+  ))
+  
+  Islands.UCSC <- unique(rbind(
+    IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Islands.UCSC,
+    IlluminaHumanMethylation450kanno.ilmn12.hg19::Islands.UCSC
+  ))
+  
+  other.epic <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Other[,c("UCSC_RefGene_Name","UCSC_RefGene_Group")]
+  other.epic$cpg <- rownames(other.epic)
+  other.hm450 <- IlluminaHumanMethylation450kanno.ilmn12.hg19::Other[,c("UCSC_RefGene_Name","UCSC_RefGene_Group")]
+  other.hm450$cpg <- rownames(other.hm450)
+
+  Other <- unique(rbind(
+    other.epic,
+    other.hm450
+  ))
+  
+  
+  message("Annotating sig in brain")
+  result$sig.in.brain <- result$cpg %in% brain.meta.analysis.cpgs
+
+  message("Annotating great")
+  result$GREAT_annotation <- great$GREAT_annotation[match(result$cpg,great$cpg)]
+
+  message("Annotating location")
+  result$pos <- Locations[result$cpg,]$pos
+  result$chr <- Locations[result$cpg,]$chr
+  
+  message("Annotating island")
+  result$Islands.UCSC.Relation_to_Island <- Islands.UCSC$Relation_to_Island[match(result$cpg,rownames(Islands.UCSC))] 
+  result$UCSC_RefGene_Name <- Other$UCSC_RefGene_Name[match(result$cpg,rownames(Other))] 
+  result$UCSC_RefGene_Group <- Other$UCSC_RefGene_Group[match(result$cpg,rownames(Other))]
+  
+  result$GencodeCompV12_NAME <- infinium.annot$GencodeCompV12_NAME[match(result$cpg,infinium.annot$IlmnID)]
+  result$GencodeCompV12_Accession <- infinium.annot$GencodeCompV12_Accession[match(result$cpg,infinium.annot$IlmnID)]
+  result$GencodeCompV12_Group <- infinium.annot$GencodeCompV12_Group[match(result$cpg,infinium.annot$IlmnID)]
+
+  message("Annotating E073_15_coreMarks_segments")
+  result.gr <- result %>% makeGRangesFromDataFrame(start.field = "pos",end.field = "pos",seqnames.field = "chr")
+  hits <- findOverlaps(result.gr,ChmmModels.gr) %>% as.data.frame()
+  hits$state <- ChmmModels.gr$state[hits$subjectHits]
+  hits$cpg <- result$cpg[hits$queryHits]
+  result$E073_15_coreMarks_segments_state <- hits$state[match(result$cpg,hits$cpg)]
+
+  return(result)
+  
+}
+```
+
+
+```{R, eval = FALSE}
+meta_df_fixed_effect.annotated <- meta_df_fixed_effect %>% add_annotation()
+meta_df_fixed_effect.annotated.sig <- meta_df_fixed_effect.annotated %>% dplyr::filter(pVal.final.bacon < 0.05) 
+
+readr::write_csv(
+  meta_df_fixed_effect.annotated  %>% as.data.frame(),
+  file = paste0(
+    dir.result.meta.analysis,
+    "meta_analysis_orlm_fixed_effect_ADNI_and_AIBL_single_cpg_annotated.csv"
+  )
+)
+
+readr::write_csv(
+  meta_df_fixed_effect.annotated.sig  %>% as.data.frame(),
+  file = paste0(
+    dir.result.meta.analysis,
+    "meta_analysis_orlm_fixed_effect_ADNI_and_AIBL_single_cpg_annotated_pvalue_cut_off_0_05.csv"
+  )
+)
+```
+
+
+# Results 
+
+```{R}
+meta_df.annotated.sig <- readr::read_csv(
+  file = paste0(
+    dir.result.meta.analysis,
+    "meta_analysis_orlm_fixed_effect_ADNI_and_AIBL_single_cpg_annotated_pvalue_cut_off_0_05.csv"
+  ),
+  col_types = readr::cols()
+)
+dim(meta_df.annotated.sig)
+table(meta_df.annotated.sig$pVal.final.bacon < 1E-5) 
+table(meta_df.annotated.sig$fdr.bacon < 0.05)
+ggpubr::gghistogram(meta_df.annotated.sig$fdr.bacon)
+```
+
+### pVal.final.bacon < 1E-5
+```{R}
+meta_df.annotated.sig %>% dplyr::filter(pVal.final.bacon < 1E-5)  %>% gt::gt()
+```
+
+
+# Session information
+```{R}
+devtools::session_info()
+```
+

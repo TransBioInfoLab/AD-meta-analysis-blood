@@ -1,7 +1,10 @@
 ---
-title: "Cross-tissue Meta-analysis dataset - using bacon inflation- and bias-corrected P-values"
-author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
-date: "`r Sys.Date()`"
+title: "Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease"
+subtitle: "Cross-tissue Meta-analysis dataset - using bacon inflation- and bias-corrected P-values"
+author:
+  - Tiago Chedraoui Silva^[University of Miami]
+  - Lily Wang^[University of Miami]
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   rmarkdown::html_document:
     highlight: breezedark
@@ -19,6 +22,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_knit$set(root.dir = "../..")
 ```
 
 
@@ -37,9 +41,8 @@ library(tidyr)
 
 ## Paths
 ```{R}
-dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
-dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
-dir.results <- file.path(dir.base,"analysis_results")
+dir.data.aux <- file.path("datasets/Aux/") 
+dir.results <- file.path("analysis_results")
 dir.result.cross.meta.analysis <- file.path(dir.results, "cross_meta_analysis/")
 for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
 ```
@@ -48,13 +51,13 @@ for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarn
 
 ```{R, eval = TRUE}
 blood.meta_analysis <- readr::read_csv(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/meta_analysis/Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv"
+  "analysis_results/meta_analysis/Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv"
   )
 ```
 
 ```{R}
 brain.meta_analysis <- readr::read_csv(
-  "~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/NatComm_revision/DATASETS/meta_analysis_single_cpg_bacon_df.csv"
+  "datasets/brain_meta_analysis//meta_analysis_single_cpg_df.csv.gz"
   )
 ```
 

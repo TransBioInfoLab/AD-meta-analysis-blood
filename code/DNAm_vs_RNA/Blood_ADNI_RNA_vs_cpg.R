@@ -1,7 +1,9 @@
 library(dplyr)
 library(SummarizedExperiment)
 
-setwd("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples")
+path.RNA_vs_DNAm <- "analysis_results/RNA_vs_DNAm/"
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+
 #-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------
@@ -196,7 +198,6 @@ results.window.analysis[results.window.analysis$RLM_met.residual_fdr < 0.05,]
 # Save results
 #-------------------------------------------------------------------------------
 
-path.RNA_vs_DNAm <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/RNA_vs_DNAm/"
 writexl::write_xlsx(
   list(
     "Promoter" = results.promoter.analysis,

@@ -22,6 +22,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+knitr::opts_knit$set(root.dir = "../..")
 ```
 
 # Setup

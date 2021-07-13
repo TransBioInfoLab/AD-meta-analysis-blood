@@ -37,7 +37,9 @@ list.of.packages <- c(
   "DT",
   "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
   "RVenn",
-  "GWASTools"
+  "GWASTools",
+  "meta",
+  "metap"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) BiocManager::install(new.packages)

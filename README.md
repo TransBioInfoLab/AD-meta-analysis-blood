@@ -76,6 +76,12 @@ if(length(new.packages)) BiocManager::install(new.packages)
 devtools::install_github("igordot/msigdbr")
 ```
 
+For ADNIMERGE, download it from https://ida.loni.usc.edu/: Merged ADNI 1/GO/2 Packages for R
+
+```r
+install.packages("~/Downloads/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source")
+```
+
 # Platform information
 
 ```r

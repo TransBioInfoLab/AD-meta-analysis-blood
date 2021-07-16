@@ -78,7 +78,7 @@ devtools::install_github("igordot/msigdbr")
 
 # Platform information
 
-```
+```r
 version  R version 4.1.0 (2021-05-18)
  os       macOS Big Sur 11.4          
  system   x86_64, darwin17.0          

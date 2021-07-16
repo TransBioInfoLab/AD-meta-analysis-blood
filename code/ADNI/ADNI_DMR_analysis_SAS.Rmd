@@ -29,9 +29,9 @@ library(SummarizedExperiment)
 library(GenomicRanges)
 library(ExperimentHub)
 library(tidyr)
-devtools::load_all("~/Documents/packages/coMethDMR/")
+library(coMethDMR)
 cohort <- "ADNI"
-dir.base <- "~/Dropbox (BBSR)/Tiago Silva/AD-meta-analysis-blood-samples/"
+dir.base <- "."
 dir.data <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation") 
 dir.data.raw <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/idat") 
 dir.data.processed <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/processed") 
@@ -47,7 +47,6 @@ for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarn
 
 
 ```{R, eval = FALSE}
-devtools::load_all("~/Documents/packages/coMethDMR/")
 probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "EPIC",clusterType = "regions")
 adni.se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
 adni.se <- adni.se[rownames(adni.se) %in% unique(unlist(probes.cluster.all)),]
@@ -65,8 +64,10 @@ coMeth_ls <- CoMethAllRegions(
   nCores_int = 4,
   progressbar = TRUE
 )
-save(coMeth_ls,file = file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda"))
-
+save(
+  coMeth_ls,
+  file = file.path(dir.data.dmr,"coMeth_ls_min_age_at_visit_65.rda")
+)
 ```
 
 # Take the median
@@ -153,6 +154,7 @@ str_data <- function(medianMval.df, pheno, prefix){
 }
 
 # break the input into 1000 cpgs per file for SAS
+dir.create("ADNI_GLMM/DMR_AD_CN/DATA/")
 for(start in seq(1,nrow(medianMval.df),by = 1000)){
   end <- start + 1000 - 1
   idx <- which(start == seq(1,nrow(medianMval.df),by = 1000))
@@ -164,34 +166,13 @@ for(start in seq(1,nrow(medianMval.df),by = 1000)){
   final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
   readr::write_csv(
     final,
-    paste0("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_AD_CN/DATA/",
-                  "ADNI_AD_CN_1000_dmrs_",idx,".csv")
+    paste0("ADNI_GLMM/DMR_AD_CN/DATA/","ADNI_AD_CN_1000_dmrs_",idx,".csv")
   )
 }
 
-for(start in seq(1,nrow(medianMval.df),by = 1000)){
-  end <- start + 1000 - 1
-  idx <- which(start == seq(1,nrow(medianMval.df),by = 1000))
-  if(end > nrow(medianMval.df)) end <- nrow(medianMval.df)
-  print(paste0(start,"-",end))
-  
-  medianMval.df.selected <- medianMval.df[start:end,pheno$DIAGNOSIS %in% c("MCI","CN")]
-  final <- str_data(medianMval.df.selected,pheno = pheno)
-  final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
-  readr::write_csv(
-    final,
-    paste0("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_MCI_CN/DATA/",
-                  "ADNI_MCI_CN_1000_dmrs_",idx,".csv")
-  )
-  
-}
 
 files.ad <- dir(
-  "~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_AD_CN/DATA/",
-  full.names = T
-)
-files.mci <- dir(
-  "~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DMR_MCI_CN/DATA/",
+  "ADNI_GLMM/DMR_AD_CN/DATA/",
   full.names = T
 )
 # checking data saved
@@ -218,7 +199,7 @@ library(tidyr)
 library(lmerTest)
 
 files <- dir(
-  path = file.path(dir.base,"LW/ADNI_GLMM/DMR_AD_CN/results"),
+  path = file.path(dir.base,"ADNI_GLMM/DMR_AD_CN/results"),
   full.names = T,
   recursive = T,
   pattern = "dmr_glmm_using_median_beta_[0-9]*.csv"
@@ -245,7 +226,7 @@ library(tidyr)
 library(lmerTest)
 
 files <- dir(
-  path = file.path(dir.base,"LW/ADNI_GLMM/DMR_MCI_CN/Results"),
+  path = file.path(dir.base,"ADNI_GLMM/DMR_MCI_CN/Results"),
   full.names = T,
   recursive = T,
   pattern = "dmr_glmm_using_median_beta_[0-9]*.csv"

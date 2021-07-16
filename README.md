@@ -1,10 +1,39 @@
-# AD-meta-analysis-blood
-AD meta analysis blood 
+
+# Introduction 
+
+This repository contains the analysis R code for Integrative meta-analysis of epigenome-wide association studies in Alzheimer’s disease. Some of the analysis were made using SAS were not included in this repository.
+
+## Article
+
+Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease
+
+## Authors
+
+- Tiago C Silva
+- Juan I. Young
+- Lanyu Zhang
+- Lissette Gomez
+- Michael A. Schmidt
+- Achintya Varma
+- Xi Chen
+- Eden R. Martin
+- Lily Wang
 
 
-# Code to install required packages
+# Folders in this repository
 
-```{R, eval = FALSE}
+DRAFT-TABLES_FIGURES_4-17-2021: Has tables used in the code
+code: main folder with code analysis
+analysis_results: Folder with some of the analysis results
+
+# Code
+
+You should start processing the data in `code/ADNI` and `code/AIBL`.
+
+
+## Install required packages
+
+```r
 if (!requireNamespace("BiocManager", quietly = TRUE)){
   install.packages("BiocManager")
 }

@@ -1,29 +1,50 @@
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article:
+# Integrative meta-analysis of epigenome-wide association studies
+# identifies genomic and
+# epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Authors: 
+# - Tiago C. silva
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Date: 12 July 2021
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 #-----------------------------------------------------------------------------
 # MethReg analysis without TF
 # target gene ~ CpG 
 #-----------------------------------------------------------------------------
-devtools::load_all("~/Documents/packages/coMethDMR/")
-path.mathReg <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/analysis_results/RNA_vs_DNAm"
+library(coMethDMR)
+path.mathReg <- "AD-meta-analysis-blood-samples/analysis_results/RNA_vs_DNAm"
 dir.create(path.mathReg,recursive = TRUE,showWarnings = FALSE)
 
 #-----------------------------------------------------------------------------
 # Select DMRs
 #-----------------------------------------------------------------------------
 # - CpGs within significant DMRs (with length > 3cpgs) identified by combp
+
 combp_AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 2 DMRs-Combp-AD_vs_CN_annotated.xlsx",skip = 1
 ) # 9 DMRs
 nrow(combp_AD_vs_CN)
 
+combp_AD_vs_CN.probes <- plyr::alply(combp_AD_vs_CN$DMR,.margins = 1,.fun = function(dmr) {
+  GetCpGsInRegion(
+    dmr,
+    arrayType = "EPIC"
+  )}) # 19 DMRs
+combp_AD_vs_CN.probes$Probes <- sapply(
+  combp_AD_vs_CN.probes,
+  FUN = function(x) paste(x,collapse = ";")
+)
+
+
 #  in fdr significant DMRs in cross-tissue meta-analysis
-prioritized.dmrs <- readxl::read_xlsx(
-  path = "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",
-  sheet = 2
-  )
-prioritized.dmrs <- prioritized.dmrs[[4]] %>% na.omit %>% as.character
+prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",sheet = 1, skip = 17)
+prioritized.dmrs <- prioritized.dmrs$DMRs %>% na.omit %>% as.character
 length(prioritized.dmrs) # 10
 
-devtools::load_all("~/Documents/packages/coMethDMR/")
+
 prioritized.dmrs.probes <- plyr::alply(prioritized.dmrs,.margins = 1,.fun = function(dmr) {
   GetCpGsInRegion(
   dmr,
@@ -38,7 +59,7 @@ prioritized.dmrs$Probes <- sapply(
 
 regions <- rbind(combp_AD_vs_CN[,c("DMR","Probes")],prioritized.dmrs[,c("DMR","Probes")])
 
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_matched_rna_dnam_residuals_DMR.rda")
+load("datasets/Aux/ADNI_matched_rna_dnam_residuals_DMR.rda")
 
 all(rownames(metadata.dnam) == rownames(metadata.exp))
 all(colnames(residuals.matched.exp) == colnames(residuals.matched.met))
@@ -137,32 +158,6 @@ results.distal.analysis$regionID[results.distal.analysis$RLM_met.residual_fdr < 
 results.distal.analysis[results.distal.analysis$RLM_met.residual_fdr < 0.05,]
 
 
-
-#-------------------------------------------------------------------------------
-# window analysis
-#-------------------------------------------------------------------------------
-window.gene.dnam.pair <- MethReg::get_region_target_gene(
-  rownames(residuals.matched.met) %>% MethReg::make_granges_from_names(),
-  method = "window",
-  genome = "hg19",
-  window.size = 500 * 10^3,
-  rm.promoter.regions.from.distal.linking = FALSE
-)
-nrow(window.gene.dnam.pair)
-window.gene.dnam.pair <- window.gene.dnam.pair %>% dplyr::filter(.data$target %in% rownames(residuals.matched.exp))
-nrow(window.gene.dnam.pair)
-results.window.analysis <- plyr::adply(window.gene.dnam.pair,.margins = 1,.fun = auxfunction)
-
-# Where did the cpg come from ? 
-results.window.analysis$regions_from <- "cpgs.prioritized"
-results.window.analysis$regions_from[results.window.analysis$probeID %in% cpgs.ad.cn] <- "AD vs CN meta-analysis"
-results.window.analysis$regions_from[results.window.analysis$probeID %in% base::intersect(cpgs.ad.cn,cpgs.prioritized)] <- "AD vs CN meta-analysis/cpgs.prioritized"
-
-results.window.analysis$RLM_met.residual_fdr <- NA
-results.window.analysis$RLM_met.residual_fdr[results.window.analysis$regionID %in% combp_AD_vs_CN$DMR] <- p.adjust(results.window.analysis$RLM_met.residual_pvalue[results.window.analysis$regionID %in% combp_AD_vs_CN$DMR],method = "fdr")
-results.window.analysis$RLM_met.residual_fdr[results.window.analysis$regionID %in% prioritized.dmrs$DMR] <- p.adjust(results.window.analysis$RLM_met.residual_pvalue[results.window.analysis$regionID %in% prioritized.dmrs$DMR],method = "fdr")
-
-results.window.analysis[results.window.analysis$RLM_met.residual_fdr < 0.05,]
 #-------------------------------------------------------------------------------
 # Save results
 #-------------------------------------------------------------------------------
@@ -170,8 +165,7 @@ results.window.analysis[results.window.analysis$RLM_met.residual_fdr < 0.05,]
 writexl::write_xlsx(
   list(
     "Promoter" = results.promoter.analysis,
-    "Distal_10_up_10_down" = results.distal.analysis,
-    "Window_500kb" = results.window.analysis
+    "Distal_10_up_10_down" = results.distal.analysis
   ),
   path = file.path(path.mathReg,"Blood_DMR_Target_vs_DNAm.xlsx")
 )

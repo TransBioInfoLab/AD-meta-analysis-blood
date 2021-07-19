@@ -47,7 +47,7 @@ list.of.packages <- c(
   "tidyr",
   "GenomicRanges",
   "SummarizedExperiment",
-  "myGene",
+  "mygene",
   "ggpubr",
   "stats",
   "gt",

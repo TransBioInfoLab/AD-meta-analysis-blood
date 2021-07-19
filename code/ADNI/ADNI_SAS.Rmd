@@ -22,12 +22,12 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
-knitr::opts_knit$set(root.dir = "../..")
+knitr::opts_knit$set(root.dir = "./../../")
 ```
 
 # Setup
 
-```{R, message = FALSE, results = 'hide'}
+```{R Setup, message = FALSE, results = 'hide'}
 library(dplyr)
 library(SummarizedExperiment)
 library(ExperimentHub)
@@ -37,7 +37,7 @@ library(readxl)
 library(wateRmelon)
 library(minfi)
 cohort <- "ADNI"
-dir.base <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/"
+dir.base <- getwd()
 dir.data <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation") 
 dir.data.clinical <- file.path(dir.base,"datasets/",cohort,"/data/Clinical") 
 dir.data.raw <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation/idat") 
@@ -54,7 +54,7 @@ for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarn
 
 Source: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153712
 
-```{r, eval = FALSE}
+```{r Data_retrieval, eval = FALSE}
 RGSet <- read.metharray.exp(
   base = dir.data.raw,
   recursive = TRUE,
@@ -65,7 +65,7 @@ saveRDS(RGSet, paste0(dir.data.processed,"/RGSet.RDS"))
 
 #  Data Pre-processing 
 
-```{R, eval = FALSE}
+```{R pre_processing, eval = FALSE}
 message(object.size(RGSet))
 bs <- data.frame(bisulfiteConversion = bscon(RGSet))
 bsFilteredOut <- row.names(bs)[bs$bisulfiteConversion < 85]
@@ -83,7 +83,7 @@ save(
 ```
 
 
-```{R, eval = TRUE}
+```{R load_RGSet_filtered_bs_min_85, eval = TRUE}
 load(file.path(dir.data.processed,"/RGSet_filtered_bs_min_85.rda"))
 ```
 

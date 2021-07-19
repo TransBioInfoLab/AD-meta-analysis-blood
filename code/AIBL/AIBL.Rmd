@@ -22,6 +22,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+knitr::opts_knit$set(root.dir = "./../../")
 ```
 
 # Setup
@@ -33,7 +34,7 @@ library(ExperimentHub)
 library(minfi)
 library(wateRmelon)
 cohort <- "AIBL"
-dir.base <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/"
+dir.base <- getwd()
 dir.data <- file.path(dir.base,"datasets/",cohort,"/") 
 dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
 dir.data.raw <- file.path(dir.data,"/step1_download/") 
@@ -84,9 +85,12 @@ nb.probes.before.norm <- nrow(RGSet.filtered)
 
 ## Predicting age
 
-```{R, eval = FALSE}
+```{R, eval = TRUE}
 library(minfi)
-source("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/code/DNAm-based-age-predictor/pred.R")
+source("code/DNAm-based-age-predictor/pred.R")
+```
+
+```{R, eval = FALSE}
 age <- age.predictor(getBeta(RGSet.filtered))
 tab.age <- age$age.pred
 tab.age$sample <- rownames(tab.age)
@@ -633,12 +637,7 @@ plyr::count(pheno$DIAGNOSIS)
 ```{R analysis_data, eval = FALSE}
 mvalues <- mvalues[, pheno$barcodes]
 
-pheno.cn.mci <- pheno[pheno$DIAGNOSIS %in% c("healthy control", "Mild Cognitive Impairment"),]
 pheno.cn.ad <- pheno[pheno$DIAGNOSIS %in% c("healthy control", "Alzheimer's disease"),]
-
-mvalues.cn.mci <- mvalues[cpgs, pheno.cn.mci$barcodes]
-beta.cn.mci <- assay(aibl.se)[cpgs, pheno.cn.mci$barcodes]
-
 mvalues.cn.ad <- mvalues[cpgs, pheno.cn.ad$barcodes]
 beta.cn.ad <- assay(aibl.se)[cpgs, pheno.cn.ad$barcodes]
 
@@ -665,80 +664,9 @@ readr::write_csv(
   x = results.ad.glm, 
   file = file.path(dir.results.glm,"AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_AD_vs_CN_results.csv")
 )
-
-
-results.mci.glm <- plyr::adply(.data = beta.cn.mci,.margins = 1, .fun = function(one){
-  dat.cn.mci <- data.frame (beta = one, pheno.cn.mci)
-  b <- glm(DIAGNOSIS ~ beta + age.pred.Elastic_Net + Sex + as.factor(PLATE) + B + NK + CD4T + CD8T + Mono + Neutro, data = dat.cn.mci, family = binomial)
-  summary(b)
-  beta_results <- coef(summary(b)) [grep("beta",rownames(coef(summary(b)) ),value = TRUE),]
-  return(beta_results)
-},.parallel = TRUE, .progress = "time",.id = "cpg",.inform = FALSE)
-
-readr::write_csv(
-  x = results.mci.glm, 
-  file = file.path(
-    dir.results.glm,
-    "AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_MCI_vs_CN_results.csv")
-)
 ```
-
 
 ## Annotate results
-
-### Linear model
-```{R annotate, eval = FALSE}
-message("o Stating to annotate")
-aibl.se <- readRDS(
-  file.path(dir.data.pca, "AIBL_QNBMIQ_PCfiltered_age_at_least_65.RDS")
-)
-load(file.path(dir.data.aux,"great_EPIC_array_annotation.rda"))
-load(file.path(dir.data.aux,"E073_15_coreMarks_segments.rda"))
-load(file.path(dir.data.aux,"meta_analysis_cpgs.rda"))
-
-
-annotate_results <- function(result, data.se){
-  result$fdr <- p.adjust(result$`Pr(>|z|)`,method = "fdr")
-  result <- cbind(
-    result,
-    rowRanges(data.se)[result$cpg] %>% as.data.frame() %>% dplyr::select(1:4)
-  )
-  result$Islands.UCSC.Relation_to_Island <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Islands.UCSC[result$cpg,"Relation_to_Island"]
-  result$UCSC_RefGene_Name <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Other[result$cpg,"UCSC_RefGene_Name"]       
-  result$UCSC_RefGene_Group <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19::Other[result$cpg,"UCSC_RefGene_Group"]     
-  
-  result <- dplyr::left_join(result, great,by = c("seqnames","start","end","cpg"))
-  
-  #load("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/Tiago/E073_15_coreMarks_segments.rda")
-  hits <- findOverlaps(rowRanges(data.se)[result$cpg],ChmmModels.gr) %>% as.data.frame()
-  hits$state <- ChmmModels.gr$state[hits$subjectHits]
-  hits$cpg <- result$cpg[hits$queryHits]
-  result <- merge(result, hits[,c("state","cpg")], all.x = TRUE,sort = FALSE, by = "cpg")
-  
-  # sig.in.brain: 1 if it overlaps with the 3751 CpGs or 119 DMRs from our brain samples meta-analysis
-  result$sig.in.brain <- result$cpg %in% brain.meta.analysis.cpgs
-  return(result)
-}
-results.mci.glm <- readr::read_csv(
-  file = file.path(
-    dir.results.glm,
-    "AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_MCI_vs_CN_results.csv")
-)
-colnames(results.mci.glm)[1] <- "cpg"
-results.mci.annotated <- results.mci.glm %>% annotate_results(aibl.se)
-
-readr::write_csv(
-  x = results.mci.annotated,
-  file = file.path(dir.results.lm,"AIBL_age_at_least_65_MCI_vs_CN_results_with_blood_cell_type_proportions_annotated.csv")
-)
-
-colnames(results.ad)[1] <- "cpg"
-results.ad.annotated <- results.ad %>% annotate_results(aibl.se)
-readr::write_csv(
-  x = results.ad.annotated,
-  file = file.path(dir.results.lm,"AIBL_age_at_least_65_AD_vs_CN_results_with_blood_cell_type_proportions_annotated.csv")
-)
-```
 
 ### Logistic regression model - Using beta values
 ```{R, eval = FALSE}
@@ -764,15 +692,6 @@ annotate_results <- function(result, data.se){
   return(result)
 }
 
-results.mci.glm <- readr::read_csv(
-  file = file.path(
-    dir.results.glm,
-    "AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_MCI_vs_CN_results.csv")
-)
-
-colnames(results.mci.glm)[1] <- "cpg"
-results.mci.glm.annotated <- results.mci.glm %>% annotate_results(aibl.se)
-
 readr::write_csv(
   x = results.mci.glm.annotated,
   file = file.path(dir.results.glm,"AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_MCI_vs_CN_results_annotated.csv")
@@ -796,18 +715,11 @@ readr::write_csv(
 
 # Calculate inflation factors and Bacon correction for final results
 
-
 ```{R read_results, include = FALSE}
-results.mci <- readr::read_csv(
-  file.path(dir.results.lm,"AIBL_age_at_least_65_MCI_vs_CN_results_with_blood_cell_type_proportions_annotated.csv")
-)
 results.ad <- readr::read_csv(
   file.path(dir.results.lm,"AIBL_age_at_least_65_AD_vs_CN_results_with_blood_cell_type_proportions_annotated.csv")
 )
 
-results.mci.glm.annotated <- readr::read_csv(
-  file.path(dir.results.glm,"AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_MCI_vs_CN_results_annotated.csv")
-)
 results.ad.glm.annotated <- readr::read_csv(
   file.path(dir.results.glm,"AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_AD_vs_CN_results_annotated.csv")
 )
@@ -883,60 +795,6 @@ plot_inflation <- function(data, main){
 }
 ```
 
-## Linear model
-```{R}
-results.ad.with.inflation <- estimation_of_inflation(data = results.ad)
-
-readr::write_csv(
-  x = results.ad.with.inflation$data.with.inflation,
-  file = file.path(dir.results.lm,"AIBL_age_at_least_65_AD_vs_CN_results_with_blood_cell_type_proportions_annotated_with_inflation.csv")
-)
-
-
-qqPlot(
-  results.ad.with.inflation$data.with.inflation$Pr...z.., ci = TRUE, 
-  main = paste0(cohort, " cohort - AD vs CN")
-) + text(
-  x = 0.5, 
-  y = 5,
-  labels = bquote(lambda == .(format(results.ad.with.inflation$inflationFactor,digits = 4))),
-  pos = 4
-) + text(
-  x = 0.5, 
-  y = 4,
-  labels = bquote(lambda[bacon] == .(format(results.ad.with.inflation$estimatedInflation,digits = 4))),
-  pos = 4
-)
-```
-
-
-```{R}
-results.mci.with.inflation <- estimation_of_inflation(data = results.mci)
-
-readr::write_csv(
-  x = results.mci.with.inflation$data.with.inflation,
-  file = file.path(dir.results.lm,"AIBL_age_at_least_65_MCI_vs_CN_results_with_blood_cell_type_proportions_annotated_with_inflation.csv")
-)
-
-qqPlot(
-  results.mci.with.inflation$data.with.inflation$Pr...z.., ci = TRUE, 
-  main = paste0(cohort, " cohort - MCI vs CN")
-) + text(
-  x = 0.5, 
-  y = 5,
-  labels = bquote(lambda == .(format(results.mci.with.inflation$inflationFactor,digits = 4))),
-  pos = 4
-) + text(
-  x = 0.5, 
-  y = 4,
-  labels = bquote(lambda[bacon] == .(format(results.mci.with.inflation$estimatedInflation,digits = 4))),
-  pos = 4
-)
-
-
-```
-
-
 ## Logistic regression model - Using beta values
 ```{R}
 results.glm.ad.with.inflation <- estimation_of_inflation(data = results.ad.glm.annotated)
@@ -967,177 +825,6 @@ qqPlot(
   results.glm.ad.with.inflation$data.with.inflation$pValue.bacon, ci = TRUE, 
   main = paste0("AIBL AD vs CN - single cpg - logistic regression mode - pValue.bacon")
 ) 
-
-
-```
-
-
-
-```{R}
-results.glm.mci.with.inflation <- estimation_of_inflation(data = results.mci.glm.annotated)
-
-readr::write_csv(
-  x = results.glm.mci.with.inflation$data.with.inflation,
-  file = file.path(dir.results.glm
-                   ,"AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_MCI_vs_CN_results_annotated_with_inflation.csv")
-)
-
-qqPlot(
-  results.glm.mci.with.inflation$data.with.inflation$Pr...z.., ci = TRUE, 
-  main = paste0(cohort, " cohort")
-) + text(
-  x = 0.5, 
-  y = 5,
-  labels = bquote(lambda == .(format(results.glm.mci.with.inflation$inflationFactor,digits = 4))),
-  pos = 4
-) + text(
-  x = 0.5, 
-  y = 4,
-  labels = bquote(lambda[bacon] == .(format(results.glm.mci.with.inflation$estimatedInflation,digits = 4))),
-  pos = 4
-)
-
-```
-
-# Venn diagram 
-
-## Linearm model - Using m-values
-
-### Significant cpgs (with bacon pvalue <1E-5) 
-
-```{R venn_bacon_1, fig.width = 8, fig.height = 8}
-library(RVenn)
-
-list <-  list(
-  "\nAD vs CN\n(Bacon p-values < 1E-5)" = results.ad.with.inflation$data.with.inflation$cpg[results.ad.with.inflation$data.with.inflation$pValue.bacon < 1E-5],
-  "\nMCI vs CN\n(Bacon p-values < 1E-5)" = results.mci.with.inflation$data.with.inflation$cpg[results.mci.with.inflation$data.with.inflation$pValue.bacon < 1E-5]
-)
-venn <- Venn(list)
-p <- ggvenn(venn, fill = c("darkgreen","gold")) + theme_void() + guides(fill = FALSE)
-print(p, vp=grid::viewport(gp=grid::gpar(cex = 0.4)))
-```
-
-### Significant cpgs (with bacon pvalue <1E-5) 
-
-
-
-```{R venn_raw_pvalues_1, fig.width = 8, fig.height = 8}
-library(RVenn)
-
-list <-  list(
-  "\nAD vs CN\n(Raw p-values < 1E-5)" = results.ad.with.inflation$data.with.inflation$cpg[results.ad.with.inflation$data.with.inflation$Pr...t.. < 1E-5],
-  "\nMCI vs CN\n(Raw p-values < 1E-5)" = results.mci.with.inflation$data.with.inflation$cpg[results.mci.with.inflation$data.with.inflation$Pr...t.. < 1E-5]
-)
-venn <- Venn(list)
-p <- ggvenn(venn, fill = c("darkgreen","gold")) + theme_void() + guides(fill = FALSE)
-print(p, vp=grid::viewport(gp=grid::gpar(cex = 0.4)))
-```
-
-
-## Logistic regression model - Using beta values
-
-### Significant cpgs (with bacon pvalue <1E-5) 
-
-```{R venn_bacon, fig.width = 8, fig.height = 8}
-library(RVenn)
-
-list <-  list(
-  "\nAD vs CN\n(Bacon p-values < 1E-5)" = results.glm.ad.with.inflation$data.with.inflation$cpg[results.glm.ad.with.inflation$data.with.inflation$pValue.bacon < 1E-5],
-  "\nMCI vs CN\n(Bacon p-values < 1E-5)" = results.glm.mci.with.inflation$data.with.inflation$cpg[results.glm.mci.with.inflation$data.with.inflation$pValue.bacon < 1E-5]
-)
-venn <- Venn(list)
-p <- ggvenn(venn, fill = c("darkgreen","gold")) + theme_void() + guides(fill = FALSE)
-print(p, vp=grid::viewport(gp=grid::gpar(cex = 0.4)))
-```
-
-### Significant cpgs (with bacon pvalue <1E-5) 
-
-
-
-```{R venn_raw_pvalues, fig.width = 8, fig.height = 8}
-library(RVenn)
-
-list <-  list(
-  "\nAD vs CN\n(Raw p-values < 1E-5)" = results.glm.ad.with.inflation$data.with.inflation$cpg[results.glm.ad.with.inflation$data.with.inflation$Pr...z.. < 1E-5],
-  "\nMCI vs CN\n(Raw p-values < 1E-5)" = results.glm.mci.with.inflation$data.with.inflation$cpg[results.glm.mci.with.inflation$data.with.inflation$Pr...z.. < 1E-5]
-)
-venn <- Venn(list)
-p <- ggvenn(venn, fill = c("darkgreen","gold")) + theme_void() + guides(fill = FALSE)
-print(p, vp=grid::viewport(gp=grid::gpar(cex = 0.4)))
-```
-
-
-# Linear mixed model vs logist regression model
-
-```{R, eval = FALSE}
-logistic_mixed_model <- readr::read_csv(
-  file = file.path(dir.results.glm,"AIBL_glm_diagnosis_vs_beta_and_covaritates_age_at_least_65_AD_vs_CN_results_annotated_with_inflation.csv")
-)
-logistic_mixed_model$analysis <- "logistic_mixed_model"
-linear_mixed_model <- readr::read_csv(
-  file = file.path(dir.results.lm,"AIBL_age_at_least_65_AD_vs_CN_results_with_blood_cell_type_proportions_annotated_with_inflation.csv")
-) 
-linear_mixed_model$analysis <- "linear_mixed_model"
-
-
-linear_mixed_model$raw_pval <- linear_mixed_model$Pr...t..
-logistic_mixed_model$raw_pval <- logistic_mixed_model$Pr...z..
-ggpubr::ggarrange(
-  plotlist = list(
-    rbind(linear_mixed_model[,c("analysis","raw_pval")],
-          logistic_mixed_model[,c("analysis","raw_pval")]) %>% 
-      tidyr::pivot_longer(cols = c("raw_pval")) %>%
-      ggpubr::gghistogram(x = "value",fill = "analysis",color = "white") + ggplot2::ggtitle("P-value") + ggplot2::xlab("raw_pval"),
-    rbind(linear_mixed_model[,c("analysis","fdr")],
-          logistic_mixed_model[,c("analysis","fdr")]) %>% 
-      tidyr::pivot_longer(cols = c("fdr")) %>%
-      ggpubr::gghistogram(x = "value",fill = "analysis",color = "white") + ggplot2::ggtitle("FDR") + ggplot2::xlab("FDR"),
-    ggpubr::ggtexttable(
-      data.frame(
-        "Analysis" = c(
-          "linear mixed model", "linear mixed model", 
-                       "logistic mixed model", "logistic mixed model"
-          ),
-        "Field" = c("P-value", "FDR", "P-value", "FDR"),
-        "Min" = c(
-          min(linear_mixed_model$Pr...t..) %>% format(digits = 2),
-          min(linear_mixed_model$fdr) %>% format(digits = 2),
-          min(logistic_mixed_model$Pr...z..) %>% format(digits = 2),
-          min(logistic_mixed_model$fdr)  %>% format(digits = 2)
-        )
-      ), rows = NULL,theme  = ggpubr::ttheme("mBlue")
-    )
-  ),labels = c("AIBL")
-)
-
-
-ggpubr::ggarrange(
-  plotlist = list(
-    rbind(linear_mixed_model[,c("analysis","pValue.bacon")],
-          logistic_mixed_model[,c("analysis","pValue.bacon")]) %>% 
-      tidyr::pivot_longer(cols = c("pValue.bacon")) %>%
-      ggpubr::gghistogram(x = "value",fill = "analysis",color = "white") + ggplot2::ggtitle("P-value bacon") + ggplot2::xlab("pValue bacon"),
-    rbind(linear_mixed_model[,c("analysis","fdr.bacon")],
-          logistic_mixed_model[,c("analysis","fdr.bacon")]) %>% 
-      tidyr::pivot_longer(cols = c("fdr.bacon")) %>%
-      ggpubr::gghistogram(x = "value",fill = "analysis",color = "white") + ggplot2::ggtitle("FDR bacon") + ggplot2::xlab("bacon FDR"),
-    ggpubr::ggtexttable(
-      data.frame(
-        "Analysis" = c(
-          "linear mixed model", "linear mixed model", 
-                       "logistic mixed model", "logistic mixed model"
-          ),
-        "Field" = c("P-value bacon", "FDR bacon", "P-value bacon", "FDR bacon"),
-        "Min" = c(
-          min(linear_mixed_model$pValue.bacon) %>% format(digits = 2),
-          min(linear_mixed_model$fdr.bacon) %>% format(digits = 2),
-          min(logistic_mixed_model$pValue.bacon) %>% format(digits = 2),
-          min(logistic_mixed_model$fdr.bacon)  %>% format(digits = 2)
-        )
-      ), rows = NULL,theme  = ggpubr::ttheme("mBlue")
-    )
-  ),labels = c("AIBL")
-)
 
 
 ```

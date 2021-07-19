@@ -1,9 +1,36 @@
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# Article
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+#  Integrative meta-analysis of epigenome-wide association studies identifies 
+#  genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# Authors
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# - Tiago C Silva
+# - Juan I. Young
+# - Lanyu Zhang
+# - Lissette Gomez
+# - Michael A. Schmidt
+# - Achintya Varma
+# - Xi Chen
+# - Eden R. Martin
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
 library(dplyr)
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# Before you start
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+#  London data processing was performed in our previous study
+#  Code to acquire the data is available at:
+# https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/single_cohort_analysis/London.Rmd
+# https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/single_cohort_analysis/London_blood.Rmd
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
 
 #-------------------------------------------------------------------------------
 # Data retrieval
 #-------------------------------------------------------------------------------
-main.dir <- "~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/"
+main.dir <- "../coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/"
 data.brain.beta <- file.path(main.dir,"DATASETS/LONDON/step5_pca_filtering/")
 data.brain.pheno <- file.path(main.dir,"DATASETS/LONDON/step6_neuron_comp/")
 data.blood.beta <- file.path(main.dir,"DATASETS/LONDON_blood/step5_pca_filtering/")
@@ -18,12 +45,15 @@ data.BECon <- file.path(main.dir,"DATASETS/LONDON_blood/step10_blood_brain_corre
 brain_beta <- readRDS(
   paste0(data.brain.beta, "London_PFC_QNBMIQ_PCfiltered_withStageExclude.RDS")
 ) # 450793    111
+
 brain_pheno <- readRDS(
   paste0(data.brain.pheno, "pheno107_PFC_withNeuronProp_withStageExclude_df.RDS")
 )
+
 blood_beta <- readRDS(
   paste0(data.blood.beta, "London_QNBMIQ_PCfiltered_withStatusExclude.RDS")
 ) #  450793     77
+
 blood_pheno <- readRDS(
   paste0(data.blood.pheno, "pheno_BLOOD_withBloodProp_withStatusExclude_df.rds")
 )
@@ -54,6 +84,7 @@ blood_beta_final <- blood_beta[, pheno_final$blood_sample]
 main_dmrs <- read.csv(
   paste0(data.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv")
 )
+
 main_cpgs <- read.csv(
   paste0(data.cpg, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
 )
@@ -102,11 +133,11 @@ blood_brain_cor
 
 write.csv(
   blood_brain_cor,
-  paste0("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/London_blood_brain_beta_correlation.csv"),
+  paste0("analysis_results/London_blood/London_blood_brain_beta_correlation.csv"),
   row.names = FALSE
 )
 
-# Calculate blood and brain correlation (with taking residuals)
+# Calculate blood and brain correlation (with residuals)
 
 ## Take residuals
 
@@ -131,16 +162,16 @@ lmF <- function(mval){
 }
 
 library(doParallel)
-# registerDoParallel(detectCores()/2)
-# resid <- plyr::adply(mvalue_mat,1,.fun = lmF,.progress = "time",.parallel = FALSE)
-# rownames(resid) <- resid[,1]
-# resid[,1] <- NULL
-# colnames(resid) <- colnames(mvalue_mat)
+registerDoParallel(detectCores()/2)
+resid <- plyr::adply(mvalue_mat,1,.fun = lmF,.progress = "time",.parallel = FALSE)
+rownames(resid) <- resid[,1]
+resid[,1] <- NULL
+colnames(resid) <- colnames(mvalue_mat)
 
-# saveRDS(
-#  resid,
-#  paste0(data.final.resid, "London_PFC_QNBMIQ_PCfiltered_mvalResiduals.RDS")
-# )
+saveRDS(
+  resid,
+  paste0(data.final.resid, "London_PFC_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+)
 
 ### for blood beta matrix
 
@@ -224,10 +255,10 @@ write.csv(
 
 ### Call in datasets
 beta <- read.csv(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/London_blood_brain_beta_correlation.csv"
+  "analysis_results/London_blood/London_blood_brain_beta_correlation.csv"
 )
 resid <- read.csv(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/London_blood_brain_residuals_correlation.csv"
+  "analysis_results/London_blood/London_blood_brain_residuals_correlation.csv"
 )
 
 ### Rename variables
@@ -276,29 +307,30 @@ write.csv(
 
 
 library(dplyr)
-tab1 <- read.csv( paste0("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/London_blood_brain_correlation_cpgs.csv"))
+tab1 <- read.csv( paste0("analysis_results/London_blood/London_blood_brain_correlation_cpgs.csv"))
 
-tab2 <- readxl::read_xlsx( paste0("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/RNA_vs_DNAm//Blood_and_brain_merged_all_blood_cpgs.xlsx"),sheet = 2) %>%
+tab2 <- "analysis_results/RNA_vs_DNAm//Blood_and_brain_merged_all_blood_cpgs.xlsx" %>% 
+  readxl::read_xlsx( sheet = 2) %>%
   dplyr::rename(cpg = probeID)
 
 # File in code/others
 # Does not have all probes due to hm450 and EPIC difference
-tab3 <- readxl::read_xlsx( paste0("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/tables//all-CpGs_and_DMRs-crossTissue_brain_blood_with_NAs.xlsx"),sheet = 1)
+tab3 <- readxl::read_xlsx( paste0("tables//all-CpGs_and_DMRs-crossTissue_brain_blood_with_NAs.xlsx"),sheet = 1)
 
 merged <- tab2 %>% dplyr::full_join(tab3) %>% dplyr::full_join(tab1)
 merged <- merged[!is.na(merged$cpgs_from),]
-writexl::write_xlsx(merged,"~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/tables//merged_table_RNA_DNAm_cross_tissue_meta_analysis_london_brain_blood_cor.xlsx")
+writexl::write_xlsx(merged,"tables//merged_table_RNA_DNAm_cross_tissue_meta_analysis_london_brain_blood_cor.xlsx")
 
 
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
 # - CpGs within significant DMRs (with length > 3cpgs) identified by combp
 combp_AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
+  "DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
 ) # 9 DMRs
 nrow(combp_AD_vs_CN)
 

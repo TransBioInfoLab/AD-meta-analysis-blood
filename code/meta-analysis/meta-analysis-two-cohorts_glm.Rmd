@@ -1,7 +1,10 @@
 ---
-title: "Meta-analysis dataset - using bacon inflation- and bias-corrected P-values"
-author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
-date: "`r Sys.Date()`"
+title: "Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease"
+subtitle: "Meta-analysis dataset - using bacon inflation- and bias-corrected P-values"
+author:
+  - Tiago Chedraoui Silva^[University of Miami]
+  - Lily Wang^[University of Miami]
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   rmarkdown::html_document:
     highlight: breezedark
@@ -19,7 +22,9 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_knit$set(root.dir = "../..")
 ```
+
 
 
 # Main libraries and configuration
@@ -35,7 +40,7 @@ library(tidyr)
 
 ## Paths
 ```{R}
-dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
+dir.base <- getwd()
 dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
 dir.results <- file.path(dir.base,"analysis_results")
 dir.result.meta.analysis <- file.path(dir.results, "meta_analysis/Logistic_regression_model/")
@@ -97,19 +102,7 @@ multi_cohorts_AD_vs_CN <- Reduce(
   list.of.results[grep("AD_vs_CN",names(list.of.results))]
 ) %>% unique()
 
-
-multi_cohorts_MCI_vs_CN <- Reduce(
-  function(x,y, ...) inner_join(
-    x[c("cpg",grep("_vs_",colnames(x),value = TRUE))], 
-    y[c("cpg",grep("_vs_",colnames(y),value = TRUE))], 
-    ..., 
-    by = "cpg"
-  ),
-  list.of.results[grep("MCI_vs_CN",names(list.of.results))]
-) %>% unique() 
-
 lapply(list.of.results,dim)
-dim(multi_cohorts_MCI_vs_CN)
 dim(multi_cohorts_AD_vs_CN)
 ```
 
@@ -191,17 +184,6 @@ meta_df_AD_vs_CN_fixed_effect <- meta_df_AD_vs_CN %>% calculate_meta_analysis_pv
 readr::write_csv(
   meta_df_AD_vs_CN_fixed_effect  %>% as.data.frame(),
   file = paste0(dir.result.meta.analysis.ad, "meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg.csv")
-)
-
-```
-
-```{R meta_mci, eval = FALSE}
-meta_df_MCI_vs_CN <- multi_cohorts_MCI_vs_CN %>% calculate_meta_analysis()
-meta_df_MCI_vs_CN_fixed <- meta_df_MCI_vs_CN %>% calculate_meta_analysis_pvalue(pvalue.type = "fixed")
-
-readr::write_csv(
-  meta_df_MCI_vs_CN_fixed  %>% as.data.frame(),
-  file = paste0(dir.result.meta.analysis.mci, "meta_analysis_glm_fixed_effect_ADNI_and_AIBL_MCI_vs_CN_single_cpg.csv")
 )
 
 ```
@@ -296,23 +278,6 @@ readr::write_csv(
 ```
 
 
-```{R, eval = FALSE}
-meta_df_MCI_vs_CN.annotated <- meta_df_MCI_vs_CN_fixed %>% add_annotation()
-meta_df_MCI_vs_CN.annotated.sig <- meta_df_MCI_vs_CN.annotated %>% dplyr::filter(pVal.final.bacon < 0.05) 
-
-readr::write_csv(
-  meta_df_MCI_vs_CN.annotated  %>% as.data.frame(),
-  file = paste0(dir.result.meta.analysis.mci,"meta_analysis_glm_fixed_effect_ADNI_and_AIBL_MCI_vs_CN_single_cpg_annotated.csv")
-)
-
-readr::write_csv(
-  meta_df_MCI_vs_CN.annotated.sig  %>% as.data.frame(),
-  file = paste0(
-    dir.result.meta.analysis.mci,
-    "meta_analysis_glm__fixed_effect_ADNI_and_AIBL_MCI_vs_CN_single_cpg_annotated_pvalue_cut_off_0_05.csv"
-  )
-)
-```
 
 # Results 
 
@@ -335,27 +300,6 @@ ggpubr::gghistogram(meta_df_AD_vs_CN.annotated.sig$fdr.bacon)
 ### pVal.final.bacon < 1E-5
 ```{R}
 meta_df_AD_vs_CN.annotated.sig %>% dplyr::filter(pVal.final.bacon < 1E-5)  %>% gt::gt()
-```
-
-## MCI vs CN
-
-```{R}
-meta_df_MCI_vs_CN.annotated.sig <- readr::read_csv(
-  file = paste0(
-    dir.result.meta.analysis.mci,
-    "meta_analysis_glm__fixed_effect_ADNI_and_AIBL_MCI_vs_CN_single_cpg_annotated_pvalue_cut_off_0_05.csv"
-  ),
-  col_types = readr::cols()
-)
-dim(meta_df_MCI_vs_CN.annotated.sig)
-table(meta_df_MCI_vs_CN.annotated.sig$pVal.final.bacon < 1E-5) 
-table(meta_df_MCI_vs_CN.annotated.sig$fdr.bacon < 0.05)
-ggpubr::gghistogram(meta_df_MCI_vs_CN.annotated.sig$fdr.bacon)
-```
-
-### pVal.final.bacon < 1E-5
-```{R}
-meta_df_MCI_vs_CN.annotated.sig %>% dplyr::filter(pVal.final.bacon < 1E-5) %>% gt::gt()
 ```
 
 # Session information

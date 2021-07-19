@@ -773,24 +773,6 @@ for(start in seq(1,nrow(adni.se),by = 1000)){
   )
 }
 
-dir.create("~/Dropbox (BBSR)/AD-meta-analysis-blood-samples/LW/ADNI_GLMM/DATA_for_SAS_models_MCI_CN//")
-for(start in seq(1,nrow(adni.se),by = 1000)){
-  print(start)
-  end <- start + 1000 - 1
-  idx <- which(start == seq(1,nrow(adni.se),by = 1000))
-  if(end > nrow(adni.se)) end <- nrow(adni.se)
-  adni.se.selected <- adni.se[start:end,adni.se$DX %in% c("MCI","CN")]
-  final <- str_data(adni.se.selected)
-  final$DIAGNOSIS_merged <- final$VISCODE <- final$visit <- NULL
-  readr::write_csv(
-    final,
-    file = paste0(
-      dir.lw,
-      "MCI_CN/DATA_for_SAS_models//",
-      "ADNI_1000_cpgs_",idx,".csv"
-    )
-  )
-}
 ```
 
 ## Logistic regression model
@@ -816,30 +798,6 @@ readr::write_csv(
   file = file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_SAS.cvs")
 )
 ```
-
-
-### MCI vs CN
-```{R, eval = FALSE}
-files <- dir(
-  file.path(dir.base,"LW/ADNI_GLMM/MCI_CN/Results/"),
-  full.names = T,
-  recursive = T,
-  pattern = "_[0-9]*.csv"
-)
-length(files)
-glmm <- plyr::adply(
-  .data = files,
-  .margins = 1,
-  .fun = function(f) {
-    readr::read_csv(f,col_types = readr::cols())
-  },.progress = "time",.id = NULL) %>% unique()  
-
-readr::write_csv(
-  glmm, 
-  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_SAS.cvs")
-)
-```
-
 
 ## Annotate results
 ```{R annotate_functions, eval = FALSE}
@@ -873,16 +831,6 @@ annotate_results <- function(result, data.se){
 ```
 
 ```{R annotate, eval = FALSE}
-logistic_mixed_model_mci_cn <- readr::read_csv(
-  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_SAS.cvs")
-)
-logistic_mixed_model_mci_cn.annnotated <- logistic_mixed_model_mci_cn %>% annotate_results(adni.se)
-
-readr::write_csv(
-  x = logistic_mixed_model_mci_cn.annnotated,
-  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_all_annotated.csv")
-)
-
 logistic_mixed_model_ad_cn <- readr::read_csv( 
   file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_SAS.cvs")
 )
@@ -894,9 +842,6 @@ readr::write_csv(
 ```
 
 ```{R read_results, include = FALSE}
-logistic_mixed_model_mci_cn.annnotated <- readr::read_csv(
-  file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_all_annotated.csv")
-)
 logistic_mixed_model_ad_cn.annotated <- readr::read_csv(
   file.path(dir.results.glm,"ADNI_AD_vs_CN_glmm_using_beta_all_annotated.cvs")
 )
@@ -988,30 +933,6 @@ plot_inflation(logistic_mixed_model_ad_cn.with.inflation, "ADNI AD vs CN - singl
 qqPlot(
   logistic_mixed_model_ad_cn.with.inflation$data.with.inflation$pValue.bacon, ci = TRUE, 
   main = paste0("AIBL AD vs CN - single cpg - logistic regression mode - pValue.bacon")
-) 
-
-```
-
-
-
-```{R}
-logistic_mixed_model_mci_cn.with.inflation <- estimation_of_inflation(data = logistic_mixed_model_mci_cn.annnotated)
-dim(logistic_mixed_model_mci_cn.with.inflation$data.with.inflation)
-```
-
-```{R, eval = F}
-readr::write_csv(
-  x = logistic_mixed_model_mci_cn.with.inflation$data.with.inflation,
-  file = file.path(dir.results.glm,"ADNI_MCI_vs_CN_glmm_using_beta_with_inflation.csv")
-)
-```
-
-```{R}
-plot_inflation(logistic_mixed_model_mci_cn.with.inflation, "ADNI MCI vs CN - single cpg -  Logistic regression model")
-
-qqPlot(
-  logistic_mixed_model_mci_cn.with.inflation$data.with.inflation$pValue.bacon, ci = TRUE, 
-  main = paste0("AIBL MCI vs CN - single cpg - logistic regression mode - pValue.bacon")
 ) 
 
 ```

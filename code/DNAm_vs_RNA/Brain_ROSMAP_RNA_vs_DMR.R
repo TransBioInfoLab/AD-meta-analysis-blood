@@ -11,25 +11,31 @@ dir.create(path.mathReg,recursive = TRUE,showWarnings = FALSE)
 # Select DMRs
 #-----------------------------------------------------------------------------
 #  in fdr significant DMRs prioritized in cross-tissue meta-analysis
-prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",sheet = 2)
-prioritized.dmrs <- prioritized.dmrs[[4]] %>% na.omit %>% as.character
-length(prioritized.dmrs)
 
-devtools::load_all("~/Documents/packages/coMethDMR/")
-prioritized.dmrs.probes <- GetCpGsInAllRegion(
-  prioritized.dmrs,
-  arrayType = "EPIC"
-) # 19 DMRs
+#  in fdr significant DMRs in cross-tissue meta-analysis
+prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",sheet = 1, skip = 17)
+prioritized.dmrs <- prioritized.dmrs$DMRs %>% na.omit %>% as.character
+length(prioritized.dmrs) # 10
+
+
+prioritized.dmrs.probes <- plyr::alply(prioritized.dmrs,.margins = 1,.fun = function(dmr) {
+  GetCpGsInRegion(
+    dmr,
+    arrayType = "EPIC"
+  )}) # 19 DMRs
 prioritized.dmrs <- as.data.frame(prioritized.dmrs)
 colnames(prioritized.dmrs)[1] <- "DMR"
-prioritized.dmrs$Probes <- sapply(prioritized.dmrs.probes,FUN = function(x) paste(x,collapse = ";"))
+prioritized.dmrs$Probes <- sapply(
+  prioritized.dmrs.probes,
+  FUN = function(x) paste(x,collapse = ";")
+)
 
 regions <- rbind(prioritized.dmrs[,c("DMR","Probes")])
 
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
 # ROSMAP DNAm data
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
-load("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
+load("../coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
 dim(matched.dnam)
 dim(matched.exp)
 matched.exp <- matched.exp[rowSums(matched.exp) > 0,]
@@ -198,26 +204,12 @@ results.distal.analysis$regionID[results.distal.analysis$RLM_met.residual_fdr < 
 results.distal.analysis[results.distal.analysis$RLM_met.residual_fdr < 0.05,]
 
 #-------------------------------------------------------------------------------
-# window analysis
-#-------------------------------------------------------------------------------
-window.gene.dnam.pair <- window.gene.dnam.pair %>% dplyr::filter(.data$target %in% rownames(residuals.matched.exp))
-results.window.analysis <- plyr::adply(window.gene.dnam.pair,.margins = 1,.fun = auxfunction)
-
-# Where did the region come from ?
-results.window.analysis$regions_from <- "Regions_prioritized"
-results.window.analysis$RLM_met.residual_fdr <- p.adjust(results.window.analysis$RLM_met.residual_pvalue,method = "fdr")
-
-results.window.analysis$regionID[results.window.analysis$RLM_met.residual_fdr < 0.05] %in% prioritized.dmrs$DMR
-results.window.analysis[results.window.analysis$RLM_met.residual_fdr < 0.05,]
-
-#-------------------------------------------------------------------------------
 # Save results
 #-------------------------------------------------------------------------------
 writexl::write_xlsx(
   list(
     "Promoter" = results.promoter.analysis,
-    "Distal_10_up_10_down" = results.distal.analysis,
-    "Window_500kb" = results.window.analysis
+    "Distal_10_up_10_down" = results.distal.analysis
   ),
   path = file.path(path.mathReg,"Brain_DMR_Target_vs_DNAm.xlsx")
 )

@@ -7,26 +7,30 @@ library(coMethDMR)
 #-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------
+# CpGs with P<1E- 5 in AD vs. CN comparison
 library(readr)
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
 cpgs.prioritized <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",skip = 0
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood.xlsx",skip = 3
 )
-cpgs.prioritized  <- cpgs.prioritized[[5]] %>% na.omit() %>% as.character
-length(cpgs.prioritized) # 97
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
+length(cpgs.prioritized)
 
 
-# - CpGs within significant DMRs (with length > 3cpgs) identified by combp
 combp_AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 2 DMRs-Combp-AD_vs_CN_annotated.xlsx",skip = 1
 ) # 9 DMRs
 nrow(combp_AD_vs_CN)
-combp.cpgs <- combp_AD_vs_CN$Probes %>% sapply(FUN = function(x){stringr::str_split(x,";")}) %>% unlist
+
+combp.cpgs <- GetCpGsInRegion(
+  combp_AD_vs_CN$DMR,
+  arrayType = "EPIC"
+) 
 
 cpgs.all <- c(
   combp.cpgs,
@@ -34,10 +38,12 @@ cpgs.all <- c(
   cpgs.ad.cn
 ) %>% unique
 
+
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
 # ROSMAP DNAm data
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
-load("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
+# Data not included
+load("../coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
 dim(matched.dnam)
 dim(matched.exp)
 matched.exp <- matched.exp[rowSums(matched.exp) > 0,]
@@ -230,25 +236,13 @@ results.distal.analysis$regionID[results.distal.analysis$RLM_met.residual_fdr < 
 results.distal.analysis[results.distal.analysis$RLM_met.residual_fdr < 0.05,]
 
 #-------------------------------------------------------------------------------
-# window analysis
-#-------------------------------------------------------------------------------
-window.gene.dnam.pair <- window.gene.dnam.pair %>% dplyr::filter(.data$target %in% rownames(residuals.matched.exp))
-results.window.analysis <- plyr::adply(window.gene.dnam.pair,.margins = 1,.fun = auxfunction)
-
-# Where did the cpg come from ? 
-results.window.analysis <- results.window.analysis %>% add_cpgs_from_and_do_fdr
-results.window.analysis$regionID[results.window.analysis$RLM_met.residual_fdr < 0.05]  %in%  make_names_from_granges(EPIC.hg19[cpgs.prioritized])
-results.window.analysis[results.window.analysis$RLM_met.residual_fdr < 0.05,]
-
-#-------------------------------------------------------------------------------
 # Save resuls
 #-------------------------------------------------------------------------------
 path.RNA_vs_DNAm <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/RNA_vs_DNAm/"
 writexl::write_xlsx(
   list(
     "Promoter" = results.promoter.analysis,
-    "Distal_10_up_10_down" = results.distal.analysis,
-    "Window_500kb" = results.window.analysis
+    "Distal_10_up_10_down" = results.distal.analysis
   ),
   path = file.path(path.RNA_vs_DNAm,"Brain_cpg_Target_vs_DNAm.xlsx")
 )

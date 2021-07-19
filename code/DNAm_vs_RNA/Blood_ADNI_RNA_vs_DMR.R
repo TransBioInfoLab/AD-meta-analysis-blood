@@ -22,7 +22,6 @@ dir.create(path.mathReg,recursive = TRUE,showWarnings = FALSE)
 # Select DMRs
 #-----------------------------------------------------------------------------
 # - CpGs within significant DMRs (with length > 3cpgs) identified by combp
-
 combp_AD_vs_CN <- readxl::read_xlsx(
   "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 2 DMRs-Combp-AD_vs_CN_annotated.xlsx",skip = 1
 ) # 9 DMRs

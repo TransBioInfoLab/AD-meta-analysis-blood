@@ -246,7 +246,7 @@ blood_brain_cor$fdr <- p.adjust(blood_brain_cor$pVal, method = "fdr")
 
 write.csv(
   blood_brain_cor,
-  paste0("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/London_blood_brain_residuals_correlation.csv"),
+  paste0("analysis_results/London_blood/London_blood_brain_residuals_correlation.csv"),
   row.names = FALSE
 )
 
@@ -275,7 +275,7 @@ cor <- merge(
 # Merge results with results from BECon
 
 ### Call in BECon results
-becon.files <- dir("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/",pattern = "becon_part",full.names = TRUE)
+becon.files <- dir("analysis_results/London_blood/",pattern = "becon_part",full.names = TRUE)
 becon <- plyr::adply(becon.files,.margins = 1,.fun = function(f){read.csv(f)})
 
 
@@ -298,7 +298,7 @@ final <- merge(
 
 write.csv(
   final,
-  paste0("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/London_blood/London_blood_brain_correlation_cpgs.csv"),
+  paste0("analysis_results/London_blood/London_blood_brain_correlation_cpgs.csv"),
   row.names = FALSE
 )
 
@@ -321,21 +321,4 @@ merged <- tab2 %>% dplyr::full_join(tab3) %>% dplyr::full_join(tab1)
 merged <- merged[!is.na(merged$cpgs_from),]
 writexl::write_xlsx(merged,"tables//merged_table_RNA_DNAm_cross_tissue_meta_analysis_london_brain_blood_cor.xlsx")
 
-
-AD_vs_CN <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
-)
-cpgs.ad.cn <- AD_vs_CN$cpg
-length(cpgs.ad.cn) # 50
-
-# - CpGs within significant DMRs (with length > 3cpgs) identified by combp
-combp_AD_vs_CN <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
-) # 9 DMRs
-nrow(combp_AD_vs_CN)
-
-cpgs.all <- c(
-  combp_AD_vs_CN$Probes %>% sapply(FUN = function(x){stringr::str_split(x,";")}) %>% unlist,
-  cpgs.ad.cn
-) %>% unique
 

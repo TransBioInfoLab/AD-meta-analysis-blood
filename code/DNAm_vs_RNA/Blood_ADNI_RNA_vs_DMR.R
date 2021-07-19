@@ -33,7 +33,7 @@ combp_AD_vs_CN.probes <- plyr::alply(combp_AD_vs_CN$DMR,.margins = 1,.fun = func
     dmr,
     arrayType = "EPIC"
   )}) # 19 DMRs
-combp_AD_vs_CN.probes$Probes <- sapply(
+combp_AD_vs_CN$Probes <- sapply(
   combp_AD_vs_CN.probes,
   FUN = function(x) paste(x,collapse = ";")
 )

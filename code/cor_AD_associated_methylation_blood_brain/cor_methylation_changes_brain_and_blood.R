@@ -92,7 +92,7 @@ main_cpgs <- read.csv(
 ## for sig. regions
 
 ### Get probes from regions
-probes.cluster.all <- coMethDMR::getPredefinedCluster(
+probes.cluster.all <- coMethDMR:::getPredefinedCluster(
   arrayType = "450k",
   clusterType = "regions"
 )

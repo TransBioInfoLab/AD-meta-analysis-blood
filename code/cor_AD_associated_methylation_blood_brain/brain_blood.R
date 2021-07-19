@@ -1,25 +1,41 @@
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# Article
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+#  Integrative meta-analysis of epigenome-wide association studies identifies 
+#  genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# Authors
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
+# - Tiago C Silva
+# - Juan I. Young
+# - Lanyu Zhang
+# - Lissette Gomez
+# - Michael A. Schmidt
+# - Achintya Varma
+# - Xi Chen
+# - Eden R. Martin
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-
 library(dplyr)
 library(SummarizedExperiment)
-#-----------------------------------------------------------------------------
-# MethReg analysis without TF
-# target gene ~ CpG 
-#-----------------------------------------------------------------------------
+library(coMethDMR)
+library(readr)
+library(readxl)
 
 #-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------
 # CpGs with P<1E- 5 in AD vs. CN comparison
-library(readr)
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
 cpgs.prioritized <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",skip = 0
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood.xlsx",skip = 3
 )
-cpgs.prioritized  <- cpgs.prioritized[[5]] %>% na.omit() %>% as.character
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
 length(cpgs.prioritized)
 
 cpgs.all <- c(
@@ -27,39 +43,29 @@ cpgs.all <- c(
   cpgs.ad.cn
 ) %>% unique
 
-
-#-----------------------------------------------------------------------------
-# target gene ~ CpG 
-#-----------------------------------------------------------------------------
-devtools::load_all("~/Documents/packages/coMethDMR/")
-
 #-----------------------------------------------------------------------------
 # Select DMRs
 #-----------------------------------------------------------------------------
 # - CpGs within significant DMRs (with length > 3cpgs) identified by combp
 combp_AD_vs_CN <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 2 DMRs-Combp-AD_vs_CN_annotated.xlsx",skip = 1
 ) # 9 DMRs
 nrow(combp_AD_vs_CN)
 
+combp.probes <- GetCpGsInRegion(
+  combp_AD_vs_CN$DMR,
+  arrayType = "EPIC"
+) 
+
 #  in fdr significant DMRs in cross-tissue meta-analysis
-prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",sheet = 2)
-prioritized.dmrs <- prioritized.dmrs[[4]] %>% na.omit %>% as.character
+prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",sheet = 1, skip = 17)
+prioritized.dmrs <- prioritized.dmrs$DMRs %>% na.omit %>% as.character
 length(prioritized.dmrs) # 10
 
-prioritized.dmrs.probes <- GetCpGsInAllRegion(
+prioritized.dmrs.probes <- GetCpGsInRegion(
   prioritized.dmrs,
   arrayType = "EPIC"
 ) # 19 DMRs
-prioritized.dmrs <- as.data.frame(prioritized.dmrs)
-colnames(prioritized.dmrs)[1] <- "DMR"
-prioritized.dmrs$Probes <- sapply(
-  prioritized.dmrs.probes,
-  FUN = function(x) paste(x,collapse = ";")
-)
-
-regions <- rbind(combp_AD_vs_CN[,c("DMR","Probes")],prioritized.dmrs[,c("DMR","Probes")])
-regions.cpgs <- strsplit(regions$Probes,split = ";") %>% unlist %>% unique
 
 df <- rbind(
   data.frame(
@@ -71,11 +77,11 @@ df <- rbind(
     "cpg is from" = "ad vs. cn"
   ),
   data.frame(
-    "cpg" = combp_AD_vs_CN$Probes %>% strsplit(split = ";") %>% unlist %>% unique,
+    "cpg" = combp.probes %>% strsplit(split = ";") %>% unlist %>% unique,
     "cpg is from" = "comb-p"
   ),
   data.frame(
-    "cpg" = prioritized.dmrs$Probes %>% strsplit(split = ";") %>% unlist %>% unique,
+    "cpg" = prioritized.dmrs.probes %>% strsplit(split = ";") %>% unlist %>% unique,
     "cpg is from" = "prioritized dmr"
   )
 )

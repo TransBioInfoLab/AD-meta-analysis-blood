@@ -46,7 +46,7 @@ dmrs.blood.cpgs <- coMethDMR:::GetCpGsInAllRegion(dmrs.blood$region,arrayType = 
 #-------------------------------------------------------------------------------
 # Get brain meta-analysis results data
 #-------------------------------------------------------------------------------
-cpgs.brain <- readr::read_csv("datasets/brain_meta_analysis/meta_analysis_single_cpg_df.csv")
+cpgs.brain <- readr::read_csv("datasets/brain_meta_analysis/meta_analysis_single_cpg_df.csv.gz")
 cpgs.brain <-  cpgs.brain %>% dplyr::select(cpg, seqnames, start, pVal.final, fdr) %>%
   dplyr::rename(pos = start, chr = seqnames) %>%
   mutate(

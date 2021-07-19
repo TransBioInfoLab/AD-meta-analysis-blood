@@ -60,6 +60,7 @@ list.of.packages <- c(
   "lumi",
   "RPMM",
   "sm",
+  "MethReg",
   "doParallel",
   "EpiDISH",
   "GEOquery",

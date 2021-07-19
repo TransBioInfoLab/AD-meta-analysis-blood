@@ -1,17 +1,28 @@
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article:
+# Integrative meta-analysis of epigenome-wide association studies
+# identifies genomic and
+# epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Authors: 
+# - Tiago C. silva
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Date: 12 July 2021
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 library(dplyr)
 library(matrixStats)
 library(SummarizedExperiment)
 library(MethReg)
-#-----------------------------------------------------------------------------
-# MethReg Data - CpG
-# target gene ~ TF_activity + CpG + CpG * TF
+library(xCell)
+library(dorothea)
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 # GET ADNI data
 #-----------------------------------------------------------------------------
 # DNA methylation
 cohort <- "ADNI"
-dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
+dir.base <- "./"
 dir.data <- file.path(dir.base,"datasets/",cohort,"/data/DNA_methylation") 
 dir.data.pca <- file.path(dir.data,"/pca_filtering/") 
 adni.se <- readRDS(file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS"))
@@ -79,7 +90,7 @@ gene.exp.IDs <- apply(
   }
 )
 
-DXSUM <- readr::read_csv("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/datasets/ADNI/data/Clinical/DXSUM_PDXCONV_ADNIALL_downloaded_2-19-2021.csv")
+DXSUM <- readr::read_csv("datasets/ADNI/data/Clinical/DXSUM_PDXCONV_ADNIALL_downloaded_2-19-2021.csv")
 DXSUM <- DXSUM[match(gene.exp.IDs,paste0(stringr::str_extract(pattern = "[0-9]*$",DXSUM$PTID),"_",DXSUM$Phase,"_",DXSUM$VISCODE)),]
 gene.exp.IDs <- paste0(DXSUM$RID,"_",DXSUM$Phase,"_",DXSUM$VISCODE2)
 colnames(expression.matrix) <- gene.exp.IDs
@@ -104,7 +115,7 @@ save(
   adni.se,
   expression.matrix,
   ADNI_Gene_Expression_Metadata,
-  file = "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_with_MCI_matched_rna_dnam.rda"
+  file = "datasets/Aux/ADNI_with_MCI_matched_rna_dnam.rda"
 )
 
 #-----------------------------------------------------------------------------
@@ -112,7 +123,7 @@ save(
 #-----------------------------------------------------------------------------
 library(readr)
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
@@ -171,7 +182,6 @@ metadata.exp$Affy_Plate <- Affy_Plate
 metadata.exp$RIN <- RIN
 
 
-library(xCell)
 aux <- expression.matrix
 rownames(aux) <- MethReg:::map_ensg_to_symbol(rownames(aux))
 xcell <- xCellAnalysis(aux)
@@ -212,7 +222,7 @@ save(
   rnaseq.tf.es,
   residuals.matched.exp,
   xcell,
-  file = "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_with_MCI_matched_rna_dnam_residuals.rda"
+  file = "datasets/Aux/ADNI_with_MCI_matched_rna_dnam_residuals.rda"
 )
 
 
@@ -233,7 +243,7 @@ prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/pri
 prioritized.dmrs <- prioritized.dmrs[[4]] %>% na.omit %>% as.character
 length(prioritized.dmrs)
 
-devtools::load_all("~/Documents/packages/coMethDMR/")
+library(coMethDMR)
 prioritized.dmrs.probes <- GetCpGsInAllRegion(
   prioritized.dmrs,
   arrayType = "EPIC"
@@ -244,7 +254,7 @@ prioritized.dmrs$Probes <- sapply(prioritized.dmrs.probes,FUN = function(x) past
 
 regions <- rbind(combp_AD_vs_CN[,c("DMR","Probes")],prioritized.dmrs[,c("DMR","Probes")])
 
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_with_MCI_matched_rna_dnam.rda")
+load("datasets/Aux/ADNI_with_MCI_matched_rna_dnam.rda")
 
 #-----------------------------------------------------------------------------
 # get residuals 
@@ -291,5 +301,5 @@ save(
   residuals.matched.exp,
   xcell,
   regions,
-  file = "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_with_MCI_matched_rna_dnam_residuals_DMR.rda"
+  file = "datasets/Aux/ADNI_with_MCI_matched_rna_dnam_residuals_DMR.rda"
 )

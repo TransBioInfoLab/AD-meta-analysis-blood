@@ -51,7 +51,10 @@ combp_AD_vs_CN <- readxl::read_xlsx(
 nrow(combp_AD_vs_CN)
 
 #  in fdr significant DMRs in cross-tissue meta-analysis
-prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",sheet = 2)
+prioritized.dmrs <- readxl::read_xlsx(
+  path = "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",
+  sheet = 2
+)
 prioritized.dmrs <- prioritized.dmrs[[4]] %>% na.omit %>% as.character
 length(prioritized.dmrs) # 10
 
@@ -79,14 +82,6 @@ df <- rbind(
     "cpg" = cpgs.ad.cn,
     "cpg is from" = "ad vs. cn"
   )
-  #data.frame(
-  #  "cpg" = combp_AD_vs_CN$Probes %>% strsplit(split = ";") %>% unlist %>% unique,
-  #  "cpg is from" = "comb-p"
-  #),
-  #data.frame(
-  #  "cpg" = prioritized.dmrs$Probes %>% strsplit(split = ";") %>% unlist %>% unique,
-  #  "cpg is from" = "prioritized dmr"
-  #)
 )
 library(minfi)
 library(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
@@ -94,7 +89,6 @@ epic.hg19 <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 epic.hg19.gr <- epic.hg19 %>% makeGRangesFromDataFrame(
   start.field = "pos", end.field = "pos",keep.extra.columns = T
 )
-
 
 library(dplyr)
 library(GenomicRanges)
@@ -195,4 +189,7 @@ all.dmr <- lapply(data, function(gr){
 names(all.dmr) <- paste0(gsub("\\.xlsx","",basename(files)),"_vs_19_sig_DMR")
 
 
-writexl::write_xlsx(all.cpg,path = "tables/Overlap_with_AD_associate_genetics_risk_scores.xlsx")
+writexl::write_xlsx(
+  all.cpg,
+  path = "tables/Overlap_with_AD_associate_genetics_risk_scores.xlsx"
+)

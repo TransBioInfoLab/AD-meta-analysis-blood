@@ -10,29 +10,34 @@
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Date: 12 July 2021
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+library(readr)
+library(MethReg)
+library(readxl)
+library(ReMapEnrich)
+library(writexl)
 
 #-----------------------------------------------------------------------------
 # MethReg analysis
 # target gene ~ TF_activity (dorothea) + CpG + CpG * TF
 #-----------------------------------------------------------------------------
-path.mathReg <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/analysis_results/methReg/Blood"
+path.mathReg <- "analysis_results/methReg/Blood"
+path.mathReg.plot <- file.path(path.mathReg, "plots/")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
 
 #-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------
 # CpGs with P<1E- 5 in AD vs. CN comparison
-library(readr)
-library(dplyr)
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
 cpgs.prioritized <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",skip = 0
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood.xlsx",skip = 3
 )
-cpgs.prioritized  <- cpgs.prioritized[[5]] %>% na.omit() %>% as.character
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
 length(cpgs.prioritized)
 
 cpgs.all <- c(
@@ -41,15 +46,13 @@ cpgs.all <- c(
 ) %>% unique
 
 # need to add TF activity
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
+load("datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
 
 #-------------------------------------------------------------------------------
 # Analysis
 #-------------------------------------------------------------------------------
 # Get triplets using remap
-library(MethReg)
-library(ReMapEnrich)
-dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
+dir.base <- "."
 dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
 remapCatalog2018hg19 <- downloadRemapCatalog(dir.data.aux, assembly = "hg19")
 remapCatalog <- bedToGranges(remapCatalog2018hg19)
@@ -335,7 +338,6 @@ plots <- plot_interaction_model(
 # Merge plots into one file 
 plots.one.page <- gridExtra::marrangeGrob(plots, nrow = 1, ncol = 1)
 
-dir.create(file.path(path.mathReg, "plots/"),recursive = TRUE)
 ggplot2::ggsave(
   filename = file.path(path.mathReg, paste0("plots/Distal_promoter_RLM_DNAmGroup_TF_triplet_stage_wise_adj_pvalue_less_than_005.pdf")),
   plot = plots.one.page,

@@ -22,9 +22,10 @@ Integrative meta-analysis of epigenome-wide association studies identifies genom
 
 # Folders in this repository
 
-DRAFT-TABLES_FIGURES_4-17-2021: Has tables used in the code
-code: main folder with code analysis
-analysis_results: Folder with some of the analysis results
+- DRAFT-TABLES_FIGURES_4-17-2021: Has tables used in the code
+- code: main folder with code analysis
+- analysis_results: Folder with some of the analysis results
+
 
 # Code
 

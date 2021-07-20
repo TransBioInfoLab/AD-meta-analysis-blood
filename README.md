@@ -29,7 +29,6 @@ Integrative meta-analysis of epigenome-wide association studies identifies genom
 
 # Code
 
-You should start processing the data in `code/ADNI` and `code/AIBL`.
 
 
 ## Install required packages
@@ -91,6 +90,12 @@ For ADNIMERGE, download it from https://ida.loni.usc.edu/: Merged ADNI 1/GO/2 Pa
 ```r
 install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source")
 ```
+
+## How to start
+
+You should start processing the data in `code/ADNI` and `code/AIBL`, which requires access
+to controlled data.
+
 
 # Platform information
 

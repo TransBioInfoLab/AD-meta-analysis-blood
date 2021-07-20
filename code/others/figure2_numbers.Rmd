@@ -1,0 +1,134 @@
+---
+title: "Figure 2 numbers"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_knit$set(root.dir = "./../../")
+library(dplyr)
+```
+
+# Cpg
+
+## Row 1
+
+### Blood samples meta-analysis  (at P< 0.05, with bacon-correction)
+```{r}
+blood.meta_analysis <- readr::read_csv(
+  "analysis_results/meta_analysis/Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv",
+  col_types = readr::cols()
+)
+
+blood.meta_analysis.sig <- blood.meta_analysis %>% dplyr::filter(pVal.final.bacon < 0.05)   
+nrow(blood.meta_analysis.sig)
+```
+
+
+### Brain samples meta-analysis (at 5% FDR, with bacon-correction)
+
+```{R}
+brain.meta_analysis <- readr::read_csv(
+  "datasets/brain_meta_analysis//meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv",
+  col_types = readr::cols()
+)
+
+brain.meta_analysis.sig <- brain.meta_analysis %>% dplyr::filter(fdr.bacon < 0.05)   
+nrow(brain.meta_analysis.sig)
+```
+
+### Cross-tissue meta-analysis (at 5% FDR, with bacon-correction)
+
+```{R}
+cross.tissue <- readr::read_csv(
+  file = "analysis_results/cross_meta_analysis/cross_tissue_meta_analysis_glm_using_AD_vs_CN_single_cpg.csv",
+  col_types = readr::cols()
+)
+cross.tissue.sig <- cross.tissue %>% dplyr::filter(fdr < 0.05)   
+nrow(cross.tissue.sig)
+```
+
+## Row 2
+
+### Overlap of brain & cross-tissue meta-analyses 
+```{r}
+intersect(brain.meta_analysis.sig$cpg,cross.tissue.sig$cpg) %>% length
+```
+
+### Overlap of blood & cross-tissue meta-analyses 
+```{r}
+intersect(blood.meta_analysis.sig$cpg,cross.tissue.sig$cpg) %>% length
+```
+
+## Row 3
+
+### Overlap of brain, blood and cross-tissue meta-analyses
+
+```{R} 
+intersect(blood.meta_analysis.sig$cpg,cross.tissue.sig$cpg) %>% 
+  intersect(brain.meta_analysis.sig$cpg) %>% length
+```
+
+# DMR
+
+## Row 1
+
+### Blood samples meta-analysis  (at P< 0.05, with bacon-correction)
+```{R, eval = TRUE}
+blood.meta_analysis.dmr <- readr::read_csv(
+  "analysis_results/meta_analysis/DMR_Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_DMR_annotated.csv",
+  col_types = readr::cols()
+  )
+
+
+blood.meta_analysis.dmr.sig <- blood.meta_analysis.dmr %>% dplyr::filter(pVal.final.bacon < 0.05)
+nrow(blood.meta_analysis.dmr.sig)
+```
+
+### Brain samples meta-analysis (at 5% FDR, with bacon-correction)
+
+```{R}
+brain.meta_analysis.dmr <- readr::read_csv(
+  "code/others/brain_DMR_meta_analysis_with_bacon_inflation.csv",
+  col_types = readr::cols()
+) %>% dplyr::mutate(fdr.bacon = p.adjust(pVal.final.bacon,method = "fdr"))
+
+brain.meta_analysis.dmr.sig <- brain.meta_analysis.dmr %>%  dplyr::filter(fdr.bacon < 0.05)
+nrow(brain.meta_analysis.dmr.sig)
+```
+### Cross-tissue meta-analysis (at 5% FDR, with bacon-correction)
+
+```{R}
+cross.tissue.dmr <- readr::read_csv(
+  file = paste0("analysis_results/cross_meta_analysis/cross_tissue_meta_analysis_glm_using_AD_vs_CN_DMR.csv"),
+  col_types = readr::cols()
+)
+cross.tissue.dmr.sig <- cross.tissue.dmr %>% dplyr::filter(fdr < 0.05)   
+nrow(cross.tissue.dmr.sig)
+```
+
+## Row 2
+
+### Overlap of brain & cross-tissue meta-analyses 
+
+```{r}
+intersect(brain.meta_analysis.dmr.sig$inputRegion,cross.tissue.dmr.sig$inputRegion_chr) %>% length
+```
+
+### Overlap of blood & cross-tissue meta-analyses 
+
+```{r}
+intersect(blood.meta_analysis.dmr.sig$cpg,cross.tissue.dmr.sig$inputRegion_chr) %>% length
+```
+
+## Row 3
+
+### Overlap of brain, blood and cross-tissue meta-analyses
+
+```{R} 
+intersect(brain.meta_analysis.dmr.sig$inputRegion,cross.tissue.dmr.sig$inputRegion_chr) %>% 
+  intersect(blood.meta_analysis.dmr.sig$cpg) %>% length
+```
+

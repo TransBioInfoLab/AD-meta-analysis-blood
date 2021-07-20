@@ -39,16 +39,20 @@ combp_AD_vs_CN$Probes <- sapply(
 
 
 #  in fdr significant DMRs in cross-tissue meta-analysis
-prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",sheet = 1, skip = 17)
+prioritized.dmrs <- readxl::read_xlsx(
+  path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",
+  sheet = 1, 
+  skip = 17
+)
 prioritized.dmrs <- prioritized.dmrs$DMRs %>% na.omit %>% as.character
 length(prioritized.dmrs) # 10
 
 
 prioritized.dmrs.probes <- plyr::alply(prioritized.dmrs,.margins = 1,.fun = function(dmr) {
   GetCpGsInRegion(
-  dmr,
-  arrayType = "EPIC"
-)}) # 19 DMRs
+    dmr,
+    arrayType = "EPIC"
+  )}) # 19 DMRs
 prioritized.dmrs <- as.data.frame(prioritized.dmrs)
 colnames(prioritized.dmrs)[1] <- "DMR"
 prioritized.dmrs$Probes <- sapply(

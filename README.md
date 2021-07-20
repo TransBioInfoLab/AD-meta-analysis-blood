@@ -22,14 +22,12 @@ Integrative meta-analysis of epigenome-wide association studies identifies genom
 
 # Folders in this repository
 
-- DRAFT-TABLES_FIGURES_4-17-2021: Has tables used in the code
-- code: main folder with code analysis
-- analysis_results: Folder with some of the analysis results
+- DRAFT-TABLES_FIGURES_4-17-2021: Contains tables used in the code
+- code: contains code analysis described in article methods
+- analysis_results: contains some of the analysis results
 
 
 # Code
-
-
 
 ## Install required packages
 
@@ -94,7 +92,7 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 ## How to start
 
 You should start processing the data in `code/ADNI` and `code/AIBL`, which requires access
-to controlled data.
+to controlled data. Then go to specific analysis.
 
 
 # Platform information

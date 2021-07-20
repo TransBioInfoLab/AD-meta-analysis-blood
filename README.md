@@ -63,6 +63,7 @@ list.of.packages <- c(
   "MethReg",
   "writexl",
   "readxl",
+  "gridExtra",
   "doParallel",
   "ReMapEnrich",
   "EpiDISH",

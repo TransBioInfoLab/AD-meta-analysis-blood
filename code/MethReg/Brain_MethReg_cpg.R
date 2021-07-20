@@ -21,7 +21,7 @@ library(dplyr)
 library(SummarizedExperiment)
 library(coMethDMR)
 
-path.mathReg <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/analysis_results/methReg/Brain/"
+path.mathReg <- "analysis_results/methReg/Brain/"
 path.dropbox <- "~/TBL Dropbox/Tiago Silva/"
 path.project <- file.path(path.dropbox,"/PanCancer/MethReg-useCase/")
 path.data <- file.path(path.project,"data")
@@ -36,21 +36,44 @@ dir.create(path.tables.distal,recursive = T,showWarnings = F)
 #-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------
+# CpGs with P<1E- 5 in AD vs. CN comparison
 cpgs.prioritized <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",skip = 0
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood.xlsx",skip = 3
 )
-cpgs.prioritized  <- cpgs.prioritized[[5]] %>% na.omit() %>% as.character
-length(cpgs.prioritized) # 97
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
+length(cpgs.prioritized)
 
-dmrs.prioritized <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",skip = 0,sheet = 2
-) 
-dmrs.prioritized <- dmrs.prioritized[[4]] %>% na.omit() %>% as.character
-cpgs.in.dmrs.prioritized <- coMethDMR::GetCpGsInRegion(dmrs.prioritized)
+#-----------------------------------------------------------------------------
+# Select DMRs
+#-----------------------------------------------------------------------------
+#  in fdr significant DMRs in cross-tissue meta-analysis
+
+#  in fdr significant DMRs in cross-tissue meta-analysis
+prioritized.dmrs <- readxl::read_xlsx(
+  path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",
+  sheet = 1, 
+  skip = 17
+)
+prioritized.dmrs <- prioritized.dmrs$DMRs %>% na.omit %>% as.character
+length(prioritized.dmrs) # 10
+
+
+prioritized.dmrs.probes <- plyr::alply(prioritized.dmrs,.margins = 1,.fun = function(dmr) {
+  GetCpGsInRegion(
+    dmr,
+    arrayType = "EPIC"
+  )}) # 19 DMRs
+prioritized.dmrs <- as.data.frame(prioritized.dmrs)
+colnames(prioritized.dmrs)[1] <- "DMR"
+prioritized.dmrs$Probes <- sapply(
+  prioritized.dmrs.probes,
+  FUN = function(x) paste(x,collapse = ";")
+)
+regions.gr <- prioritized.dmrs$DMR %>% make_granges_from_names() 
 
 cpgs.all <- c(
   cpgs.prioritized,
-  cpgs.in.dmrs.prioritized
+  prioritized.dmrs.probes
 ) %>% unique
 
 #-----------------------------------------------------------------------------
@@ -58,11 +81,12 @@ cpgs.all <- c(
 # target gene ~ TF_activity (dorothea) + CpG + CpG * TF
 #-----------------------------------------------------------------------------
 
-
 #-=-=-=-=-=-=-=-=-=-=-=-=-=--==--=-=-=-=-=-=-=-=---=-=--=-=-=-=--=-=-=-=--=-=-=-
 # Data from other projects
 #-=-=-=-=-=-=-=-=-=-=-=-=-=--==--=-=-=-=-=-=-=-=---=-=--=-=-=-=--=-=-=-=--=-=-=-
-london.blood <- readr::read_csv("~/Dropbox (BBSR)/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/London_blood_brain_correlation_results/London_blood_brain_correlation_cpgs.csv")
+london.blood <- readr::read_csv(
+  "datasets/brain_meta_analysis/London_blood_brain_correlation_cpgs.csv"
+)
 colnames(london.blood) <- paste0("London_blood_",colnames(london.blood))
 colnames(london.blood)[1] <- "probeID"
 
@@ -123,6 +147,7 @@ add_percent_zero_q1_q4 <- function(results, dnam, exp){
 #-------------------------------------------------------------------------------
 # Read Rosmap data
 #-------------------------------------------------------------------------------
+# Data not provided
 load(file = file.path(path.usecase,"data/matched_normalized_and_residuals_data.rda"))
 
 iqr <- MethReg:::calculate_IQR(matched.dnam)
@@ -256,9 +281,9 @@ if (!file.exists(file.promoter)) {
 
 results.promoter.analysis.sig.int <- results.promoter.analysis.sig.int[order(results.promoter.analysis.sig.int$`quant_triplet_stage_wise_adj_pval_metGrp:es.tf`),]
 
-#~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plots      
-#~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 plots.promoter <- plot_interaction_model(
   triplet.results = results.promoter.analysis.sig.int, 
   dnam = resid.met.cpg, 
@@ -395,9 +420,9 @@ if (!file.exists(file.distal)) {
 results.distal.analysis.sig.int <- results.distal.analysis.sig.int[order(results.distal.analysis.sig.int$`RLM_DNAmGroup:TF_triplet_stage_wise_adj_pvalue`),]
 
 
-#~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plots      
-#~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 plots.distal <- plot_interaction_model(
   triplet.results = results.distal.analysis.sig.int, 
   dnam = resid.met.cpg, 

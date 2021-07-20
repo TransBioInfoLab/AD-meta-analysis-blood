@@ -10,33 +10,55 @@
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Date: 12 July 2021
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+library(coMethDMR)
+library(MethReg)
+library(ReMapEnrich)
 
+path.mathReg <- "AD-meta-analysis-blood-samples/analysis_results/methReg_DMR_median"
+dir.create(path.mathReg, recursive = TRUE, showWarnings = FALSE)
 #-----------------------------------------------------------------------------
 # MethReg analysis
 # target gene ~ TF_activity (dorothea) + median CpG at DMR + median CpG at DMR * TF
 #-----------------------------------------------------------------------------
-devtools::load_all("~/Documents/packages/coMethDMR/")
-path.mathReg <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/analysis_results/methReg_DMR_median"
-dir.create(path.mathReg,recursive = TRUE,showWarnings = FALSE)
 
 #-----------------------------------------------------------------------------
 # Select DMRs
 #-----------------------------------------------------------------------------
 # - CpGs within significant DMRs (with length > 3cpgs) identified by combp
 combp_AD_vs_CN <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 2 DMRs-Combp-AD_vs_CN_annotated.xlsx",skip = 1
 ) # 9 DMRs
 nrow(combp_AD_vs_CN)
 
+combp_AD_vs_CN.probes <- plyr::alply(combp_AD_vs_CN$DMR,.margins = 1,.fun = function(dmr) {
+  GetCpGsInRegion(
+    dmr,
+    arrayType = "EPIC"
+  )
+}) # 19 DMRs
+
+combp_AD_vs_CN$Probes <- sapply(
+  combp_AD_vs_CN.probes,
+  FUN = function(x) paste(x,collapse = ";")
+)
+
 #  in fdr significant DMRs in cross-tissue meta-analysis
-prioritized.dmrs <- readxl::read_xlsx(path = "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",sheet = 2)
-prioritized.dmrs <- prioritized.dmrs[[4]] %>% na.omit %>% as.character
+prioritized.dmrs <- readxl::read_xlsx(
+  path = "DRAFT-TABLES_FIGURES_4-17-2021/_Main Table 3 Top 10 prioritized-CpGs_and_DMRs-crossTissue_brain_blood-V2.xlsx",
+  sheet = 1, 
+  skip = 17
+)
+prioritized.dmrs <- prioritized.dmrs$DMRs %>% na.omit %>% as.character
 length(prioritized.dmrs) # 10
 
-prioritized.dmrs.probes <- GetCpGsInAllRegion(
-  prioritized.dmrs,
-  arrayType = "EPIC"
-) # 19 DMRs
+
+prioritized.dmrs.probes <- plyr::alply(prioritized.dmrs,.margins = 1,.fun = function(dmr) {
+  GetCpGsInRegion(
+    dmr,
+    arrayType = "EPIC"
+  )
+}) # 19 DMRs
+
 prioritized.dmrs <- as.data.frame(prioritized.dmrs)
 colnames(prioritized.dmrs)[1] <- "DMR"
 prioritized.dmrs$Probes <- sapply(
@@ -46,15 +68,13 @@ prioritized.dmrs$Probes <- sapply(
 
 regions <- rbind(combp_AD_vs_CN[,c("DMR","Probes")],prioritized.dmrs[,c("DMR","Probes")])
 
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_matched_rna_dnam_residuals_DMR.rda")
+load("datasets/Aux/ADNI_matched_rna_dnam_residuals_DMR.rda")
 
 #-------------------------------------------------------------------------------
 # Analysis
 #-------------------------------------------------------------------------------
 # Get triplets using remap
-library(MethReg)
-library(ReMapEnrich)
-dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
+dir.base <- "."
 dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
 remapCatalog2018hg19 <- downloadRemapCatalog(dir.data.aux, assembly = "hg19")
 remapCatalog <- bedToGranges(remapCatalog2018hg19)
@@ -410,9 +430,10 @@ readr:::write_csv(
 # Final table
 #------------------------------------------------------------------------------------------
 writexl::write_xlsx(
-  list("Methreg_promoter.analysis_all" = results.promoter.analysis,
-       "Methreg_distal.analysis_all" = results.distal.analysis,
-       "Methreg_regulon.analysis_all" = results.regulon.analysis
+  list(
+    "Methreg_promoter.analysis_all" = results.promoter.analysis,
+    "Methreg_distal.analysis_all" = results.distal.analysis,
+    "Methreg_regulon.analysis_all" = results.regulon.analysis
   ),
   path = file.path(path.mathReg,"MethReg_regulon_distal_promoter.xlsx")
 )

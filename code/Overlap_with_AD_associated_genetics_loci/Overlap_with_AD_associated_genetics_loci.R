@@ -31,9 +31,9 @@ cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
 cpgs.prioritized <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/prioritization-cpgs-dmrs_5-3-2021.xlsx",skip = 0
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood.xlsx",skip = 3
 )
-cpgs.prioritized  <- cpgs.prioritized[[5]] %>% na.omit() %>% as.character
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
 length(cpgs.prioritized)
 
 cpgs.all <- c(

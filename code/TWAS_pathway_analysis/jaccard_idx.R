@@ -1,3 +1,20 @@
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article:
+# Integrative meta-analysis of epigenome-wide association studies
+# identifies genomic and
+# epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Authors: 
+# - Tiago C. silva
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Date: 21 July 2021
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article section: 
+# Integrative analysis revealed gene expressions associated with DNA methylation 
+# differences in the blood and the brain converges in biological pathways	
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 # The leading edge analysis allows for the GSEA to determine which subsets 
 # (referred to as the leading edge subset) of genes contributed the most to 
 # the enrichment signal of a given gene set's leading edge or core enrichment 

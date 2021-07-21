@@ -1,8 +1,15 @@
-setwd("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples")
-#-----------------------------------------------------------------------------
-# Select cpgs
-#-----------------------------------------------------------------------------
-# CpGs with P<1E- 5 in AD vs. CN comparison
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article:
+# Integrative meta-analysis of epigenome-wide association studies
+# identifies genomic and
+# epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Authors: 
+# - Tiago C. silva
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Date: 21 July 2021
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 library(readr)
 library(dplyr)
 library(fgsea)
@@ -10,12 +17,9 @@ library(msigdbr)
 library(SummarizedExperiment)
 
 #-----------------------------------------------------------------------------
-# Analysis: target gene ~ CpG  using ROSMAP data
-#-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------
-cpgs.brain <- readxl::read_xlsx("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/DRAFT_REVISION_NatComm_10-12-2020/Supplementary Data 1-24.xlsx",skip = 3)
+cpgs.brain <- readxl::read_xlsx("datasets/brain_meta_analysis/Supplementary Data 1-24.xlsx",skip = 3)
 dim(cpgs.brain)
 cpgs.all <- cpgs.brain$cpg
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
@@ -82,13 +86,13 @@ save(
   residuals.matched.exp,
   matched.exp.log2,
   resid_met,cpgs.all,
-  file = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/brain_residuals.rda"
+  file = "code/pathway_analysis/brain_residuals.rda"
 )
 
 #-----------------------------------------------------------------------------
 # - compute PC1 for the 3751 cpgs
 #-----------------------------------------------------------------------------
-load( "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/brain_residuals.rda")
+load("code/pathway_analysis/brain_residuals.rda")
 pca <- prcomp(resid_met[rownames(resid_met) %in% cpgs.all,] %>% t,center = TRUE,scale = TRUE)
 PC1 <- pca$x[,"PC1"]
 
@@ -204,7 +208,12 @@ plots <- gridExtra::marrangeGrob(
   top = c(""),
   ncol = 1,nrow = 1
 )
-ggplot2::ggsave(plot = plots,filename = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/plots/pathway_analysis_PC_analysis_rank_abs_t_stast.pdf",width = 20,height = 8)
+ggplot2::ggsave(
+  plot = plots,
+  filename = "plots/pathway_analysis_PC_analysis_rank_abs_t_stast.pdf",
+  width = 20,
+  height = 8
+)
 
 pca.df <-  pca$x %>% as.data.frame
 pca.df <- cbind(rownames(pca.df),pca.df)
@@ -216,13 +225,16 @@ c2.cp.fgsea$leadingEdge <- lapply(c2.cp.fgsea$leadingEdge,FUN = function(x)paste
 
 library(mygene)
 
-fields <- c("alias","ensembl.type_of_gene","name","genomic_pos.chr","genomic_pos.start","genomic_pos.end","genomic_pos.strand","summary")
-gene.info <- getGenes(res$X1, fields=fields)
+fields <- c(
+  "alias","ensembl.type_of_gene","name","genomic_pos.chr",
+  "genomic_pos.start","genomic_pos.end","genomic_pos.strand","summary"
+)
+gene.info <- getGenes(res$X1, fields = fields)
 gene.info$X1 <- gene.info$query
 gene.info[,1:3] <- NULL
 res.with.info <- dplyr::left_join(res,gene.info %>% as.data.frame())
 
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/great_EPIC_array_annotation.rda")
+load("datasets/Aux/great_EPIC_array_annotation.rda")
 pc.with.info <- pca$rotation[,1:3] %>% tibble::as_tibble(rownames = "cpg")
 pc.with.info <- pc.with.info[order(-abs(pc.with.info$PC1)),]
 pc.with.info <- dplyr::left_join(pc.with.info,great)
@@ -240,7 +252,7 @@ writexl::write_xlsx(
     "c2.cp.fgsea main pathways" = c2.cp.fgsea[c2.cp.fgsea$pathway %in% c2.cp.fgsea.collapsedPathways$mainPathways],    
     "PCA variable loadings - Samples" = pc.samples
   ),
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/TWAS_analysis_only_cpg_brain.xlsx"
+  path = "analysis_results/pathway_analysis/TWAS_analysis_only_cpg_brain.xlsx"
 )
 
 
@@ -248,7 +260,7 @@ plot <- ggpubr::ggboxplot(pc.samples,x = "braaksc", y ="PC1", fill = "braaksc", 
 
 ggplot2::ggsave(
   plot = plot, 
-  filename = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/PC1_boxplot_brain.pdf",
+  filename = "analysis_results/pathway_analysis/PC1_boxplot_brain.pdf",
   width = 4,
   height = 4
 )
@@ -257,7 +269,7 @@ plot.merged <- ggpubr::ggboxplot(pc.samples,x = "braaksc_merged", y ="PC1", fill
 
 ggplot2::ggsave(
   plot = plot.merged, 
-  filename = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/PC1_boxplot_brain_merged.pdf",
+  filename = "pathway_analysis/PC1_boxplot_brain_merged.pdf",
   width = 4,
   height = 4
 )

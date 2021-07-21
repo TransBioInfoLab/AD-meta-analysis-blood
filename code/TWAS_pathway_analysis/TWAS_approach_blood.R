@@ -10,42 +10,25 @@
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Date: 21 July 2021
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
-#-----------------------------------------------------------------------------
-# Select cpgs
-#-----------------------------------------------------------------------------
-# CpGs with P<1E- 5 in AD vs. CN comparison
 library(readr)
 library(dplyr)
 library(fgsea)
 library(msigdbr)
 
+#-----------------------------------------------------------------------------
+# Select cpgs
+#-----------------------------------------------------------------------------
+# CpGs with P<1E- 5 in AD vs. CN comparison
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
-
-
-#-----------------------------------------------------------------------------
-# Select DMRs
-#-----------------------------------------------------------------------------
-# - CpGs within significant DMRs (with length > 3cpgs) identified by combp
-combp_AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
-) # 9 DMRs
-nrow(combp_AD_vs_CN)
-
-cpgs.all <- c(
-  #combp_AD_vs_CN$Probes %>% sapply(FUN = function(x){stringr::str_split(x,";")}) %>% unlist,
-  cpgs.ad.cn
-) %>% unique
-
-
 # - use ADNI dataset with matched DNAm and RNA data 
 # Only CN and Dementia samples
 # CN 181, Dementia 84
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
+load("datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
 #-----------------------------------------------------------------------------
 # - compute PC1 for the 50 AD vs. CN CpGs + cpgs in 9 comp-b DMRs (prcomp function can do it) 
 #-----------------------------------------------------------------------------
@@ -158,7 +141,12 @@ plots <- gridExtra::marrangeGrob(
   top = c(""),
   ncol = 1,nrow = 1
 )
-ggplot2::ggsave(plot = plots,filename = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/plots/pathway_analysis_PC_analysis_rank_abs_t_stast.pdf",width = 20,height = 8)
+ggplot2::ggsave(
+  plot = plots,
+  filename = "plots/pathway_analysis_PC_analysis_rank_abs_t_stast.pdf",
+  width = 20,
+  height = 8
+)
 
 pca.df <-  pca$x %>% as.data.frame
 pca.df <- cbind(rownames(pca.df),pca.df)
@@ -170,11 +158,14 @@ c2.cp.fgsea$leadingEdge <- lapply(c2.cp.fgsea$leadingEdge,FUN = function(x)paste
 
 library(mygene)
 
-fields <- c("alias","ensembl.type_of_gene","name","genomic_pos.chr","genomic_pos.start","genomic_pos.end","genomic_pos.strand","summary")
+fields <- c(
+  "alias","ensembl.type_of_gene","name","genomic_pos.chr",
+  "genomic_pos.start","genomic_pos.end","genomic_pos.strand","summary"
+)
 gene.info <- getGenes(res$X1, fields=fields)
 res.with.info <- cbind(res,gene.info[,fields])
 
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/great_EPIC_array_annotation.rda")
+load("datasets/Aux/great_EPIC_array_annotation.rda")
 pc.with.info <- pca$rotation[,1:3] %>% as_tibble(rownames = "CpG")
 pc.with.info <- pc.with.info[order(-abs(pc.with.info$PC1)),]
 great$CpG <- great$cpg
@@ -193,20 +184,20 @@ writexl::write_xlsx(
     "c5.bp.fgsea main pathways" = c5.bp.fgsea[c5.bp.fgsea$pathway %in% c5.bp.fgsea.collapsedPathways$mainPathways],
     "c2.cp.fgsea" = c2.cp.fgsea[order(c2.cp.fgsea$pval),]
   ),
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx"
+  path = "code/pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx"
 )
 
 plot <- ggpubr::ggboxplot(
   pca.samples.df,
   x = "DX", 
-  y ="PC1", 
+  y = "PC1", 
   fill = "DX", 
   add = "jitter"
 ) + ggpubr::stat_compare_means(method = "wilcox.test")
 
 ggplot2::ggsave(
   plot = plot, 
-  filename = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/PC1_boxplot_blood.pdf",
+  filename = "code/pathway_analysis/PC1_boxplot_blood.pdf",
   width = 4,
   height = 4
 )

@@ -1,7 +1,24 @@
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article:
+# Integrative meta-analysis of epigenome-wide association studies
+# identifies genomic and
+# epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Authors: 
+# - Tiago C. silva
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Date: 21 July 2021
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+library(readr)
+library(dplyr)
+library(fgsea)
+library(msigdbr)
+
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # Brain
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-load( "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/brain_residuals.rda")
+load("code/pathway_analysis/brain_residuals.rda")
 pca <- prcomp(resid_met[rownames(resid_met) %in% cpgs.all,] %>% t,center = TRUE,scale = TRUE)
 PC1 <- pca$x[,"PC1"]
 
@@ -28,30 +45,18 @@ rank.brain <- rank
 # Select cpgs
 #-----------------------------------------------------------------------------
 # CpGs with P<1E- 5 in AD vs. CN comparison
-library(readr)
-library(dplyr)
-library(fgsea)
-library(msigdbr)
 
+#-----------------------------------------------------------------------------
+# Select cpgs
+#-----------------------------------------------------------------------------
+# CpGs with P<1E- 5 in AD vs. CN comparison
 AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
-
-
-#-----------------------------------------------------------------------------
-# Select DMRs
-#-----------------------------------------------------------------------------
-# - CpGs within significant DMRs (with length > 3cpgs) identified by combp
-combp_AD_vs_CN <- readxl::read_xlsx(
-  "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/DRAFT-TABLES_FIGURES_4-17-2021/DMRs-Combp-AD_vs_CN_output_annotated.xlsx",skip = 1
-) # 9 DMRs
-nrow(combp_AD_vs_CN)
-
 cpgs.all <- c(
-  #combp_AD_vs_CN$Probes %>% sapply(FUN = function(x){stringr::str_split(x,";")}) %>% unlist,
   cpgs.ad.cn
 ) %>% unique
 
@@ -59,7 +64,7 @@ cpgs.all <- c(
 # - use ADNI dataset with matched DNAm and RNA data 
 # Only CN and Dementia samples
 # CN 181, Dementia 84
-load("~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
+load("datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
 #-----------------------------------------------------------------------------
 # - compute PC1 for the 50 AD vs. CN CpGs + cpgs in 9 comp-b DMRs (prcomp function can do it) 
 #-----------------------------------------------------------------------------
@@ -150,7 +155,7 @@ results.c5 <- plyr::adply(1:1000,.margins = 1,.fun = function(x){
   )
   
 },.progress = "time",.id = "rep")
-writexl::write_xlsx(results.c5,path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/C5_1000_permutations.xlsx")
+writexl::write_xlsx(results.c5,path = "code/pathway_analysis/C5_1000_permutations.xlsx")
 
 
 
@@ -189,6 +194,6 @@ results.c2 <- plyr::adply(1:1000,.margins = 1,.fun = function(x){
   )
   
 },.progress = "time",.id = "rep")
-writexl::write_xlsx(results.c2,path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/code/pathway_analysis/C2_1000_permutations.xlsx")
+writexl::write_xlsx(results.c2,path = "code/pathway_analysis/C2_1000_permutations.xlsx")
 
 

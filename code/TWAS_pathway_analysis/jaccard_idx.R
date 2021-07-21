@@ -7,13 +7,13 @@
 # ----------------------------------------------------------------------------
 library(dplyr)
 blood <- readxl::read_xlsx(
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results//pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx",sheet = 4
+  path = "analysis_results//pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx",sheet = 4
 )
 blood <- blood %>% dplyr::filter(padj < 0.05)
 
 
 brain <- readxl::read_xlsx(
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/TWAS_analysis_only_cpg_brain.xlsx",sheet = 3
+  path = "analysis_results/pathway_analysis/TWAS_analysis_only_cpg_brain.xlsx",sheet = 3
 )
 brain <- brain %>% dplyr::filter(padj < 0.05)
 
@@ -100,13 +100,13 @@ dev.off()
 # ----------------------------------------------------------------------------
 library(dplyr)
 blood <- readxl::read_xlsx(
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx",sheet = 6
+  path = "analysis_results/pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx",sheet = 6
 )
 blood <- blood %>% dplyr::filter(padj < 0.05)
 
 
 brain <- readxl::read_xlsx(
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/TWAS_analysis_only_cpg_brain.xlsx",sheet = 5
+  path = "analysis_results/pathway_analysis/TWAS_analysis_only_cpg_brain.xlsx",sheet = 5
 )
 brain <- brain %>% dplyr::filter(padj < 0.05)
 
@@ -181,7 +181,7 @@ cluster.df.c2 <- plyr::ldply(column.order,.fun = function(cluster){
 },.id = "cluster")
 
 
-pdf("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/plots/Jaccard_matrix_C2.pdf",width = 10,height = 10)
+pdf("analysis_results/pathway_analysis/plots/Jaccard_matrix_C2.pdf",width = 10,height = 10)
 ht %>% draw( heatmap_legend_side = "left")
 dev.off()
 
@@ -196,5 +196,5 @@ writexl::write_xlsx(
     "C2 - Cluster Jaccard matrix" = cluster.df.c2,
     "C5 - Cluster Jaccard matrix" = cluster.df.c5
   ),
-  path = "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/pathway_analysis/Jaccard_matrix.xlsx"
+  path = "analysis_results/pathway_analysis/Jaccard_matrix.xlsx"
 )

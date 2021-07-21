@@ -64,7 +64,7 @@ plot.adni <- ggpubr::ggscatter(
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
 # ROSMAP
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
-load("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
+load("datasets/brain_meta_analysis/ROSMAP_matched_data.rda")
 dim(matched.dnam)
 dim(matched.exp)
 

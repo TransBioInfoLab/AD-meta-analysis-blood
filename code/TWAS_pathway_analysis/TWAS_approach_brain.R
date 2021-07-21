@@ -22,10 +22,11 @@ library(SummarizedExperiment)
 cpgs.brain <- readxl::read_xlsx("datasets/brain_meta_analysis/Supplementary Data 1-24.xlsx",skip = 3)
 dim(cpgs.brain)
 cpgs.all <- cpgs.brain$cpg
+
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
 # ROSMAP DNAm data
 #-=-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-==-=-=-=-=--=-=
-load("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
+load("datasets/brain_meta_analysis/ROSMAP_matched_data.rda")
 dim(matched.dnam)
 dim(matched.exp)
 matched.exp <- matched.exp[rowSums(matched.exp) > 0,]
@@ -196,8 +197,6 @@ c5.bp.tab.collapsedPathways <- plotGseaTable(
   render = FALSE
 )
 
-
-
 plots <- gridExtra::marrangeGrob(
   list(
     "C5 BP" = c5.bp.tab,
@@ -208,6 +207,7 @@ plots <- gridExtra::marrangeGrob(
   top = c(""),
   ncol = 1,nrow = 1
 )
+
 ggplot2::ggsave(
   plot = plots,
   filename = "plots/pathway_analysis_PC_analysis_rank_abs_t_stast.pdf",

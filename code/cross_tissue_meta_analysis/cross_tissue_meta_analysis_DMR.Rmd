@@ -1,0 +1,218 @@
+---
+title: "Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease"
+subtitle: "Cross-tissue Meta-analysis dataset DMR - using bacon inflation- and bias-corrected P-values"
+author:
+  - Tiago Chedraoui Silva^[University of Miami]
+  - Lily Wang^[University of Miami]
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  rmarkdown::html_document:
+    highlight: breezedark
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: false
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline 
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_knit$set(root.dir = "./../../")
+```
+
+
+# Main libraries and configuration
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+library(ExperimentHub)
+library(GenomicRanges)
+library(tidyr)
+```
+
+# Meta-analysis of Genomic Regions: DMR
+
+# DMR in at least one brain and one blood sample dataset.
+
+## Paths
+```{R}
+dir.base <- "."
+dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
+dir.results <- file.path(dir.base,"analysis_results")
+dir.result.cross.meta.analysis <- file.path(dir.results, "cross_meta_analysis/")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+## Import datasets and pre-process for each cohort 
+
+```{R, eval = TRUE}
+blood.meta_analysis <- readr::read_csv(
+  "analysis_results/meta_analysis/DMR_Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_DMR_annotated.csv",
+  col_types = readr::cols()
+  )
+blood.meta_analysis <- blood.meta_analysis %>% 
+  dplyr::select(
+    c("inputRegion_chr",
+      grep("nCoMethRegion",colnames(blood.meta_analysis),value = TRUE),
+      grep("_",grep("bacon",colnames(blood.meta_analysis),value = TRUE),value = T)
+    )
+  )
+```
+
+```{R}
+brain.meta_analysis <- readr::read_csv(
+  "code/others/brain_DMR_meta_analysis_with_bacon_inflation.csv",
+  col_types = readr::cols()
+)
+brain.meta_analysis <- brain.meta_analysis %>% 
+  dplyr::select(
+    c("inputRegion",
+      grep("nCoMethRegion",colnames(brain.meta_analysis),value = TRUE),
+      grep("_",grep("bacon",colnames(brain.meta_analysis),value = TRUE),value = T)
+    )
+  )
+colnames(brain.meta_analysis)[1] <- "inputRegion_chr"
+```
+
+
+```{R}
+blood_and_brain <- inner_join(
+  brain.meta_analysis,
+  blood.meta_analysis
+)
+```
+
+## Meta analysis 
+```{R, eval = FALSE}
+n_gasparoni <- 56
+n_london <- 107
+n_london_blood <- 77
+n_mtsinai <- 141
+n_rosmap <- 726
+n_adni <- 399 # AD and CN - no replicates
+n_aibl <-  491 # AD and CN
+
+library(metap)
+doParallel::registerDoParallel(cores = 10)
+meta <- plyr::adply(
+  .data = blood_and_brain, 
+  .margins = 1,
+  .fun =  function(row) {
+    row <- row[,grep("pValue.bacon",colnames(row))]
+    ret <- sumz(
+      row %>% as.numeric, 
+      weight = c(sqrt(n_gasparoni),sqrt(n_london),sqrt(n_mtsinai),sqrt(n_rosmap),sqrt(n_adni), sqrt(n_aibl)),
+      na.action = na.omit
+    ) 
+    data.frame(
+      "sumz" = ret$z %>% as.numeric(), 
+      "p" = ret$p %>% as.numeric(), 
+      "valid_p" = length(ret$validp)
+    )
+  },.progress = "time",.parallel = FALSE,.expand = TRUE
+)
+meta.with.blood <- meta %>% dplyr::filter(! (is.na(meta$ADNI_pValue.bacon)  & is.na(meta$AIBL_pValue.bacon)))
+meta.with.blood <- meta.with.blood %>% 
+  dplyr::filter(
+    GASPARONI_nCoMethRegion > 0 | 
+        London_nCoMethRegion > 0 | 
+        ROSMAP_nCoMethRegion > 0 | 
+        MtSinai_nCoMethRegion > 0
+  )
+
+meta.with.blood <- meta.with.blood %>% 
+  dplyr::filter(AIBL_nCoMethRegions_num > 0 | ADNI_nCoMethRegions_num > 0)
+
+meta.with.blood$fdr <- p.adjust(meta.with.blood$p, method = "fdr")
+meta.with.blood <- meta.with.blood %>% dplyr::relocate(c("inputRegion_chr","sumz","p","fdr","valid_p"),.before = 1)
+```
+
+```{R meta_ad, eval = FALSE}
+readr::write_csv(
+  meta  %>% as.data.frame(),
+  file = paste0(dir.result.cross.meta.analysis, "cross_tissue_meta_analysis_glm_using_AD_vs_CN_DMR_all_before_filters.csv")
+)
+
+readr::write_csv(
+  meta.with.blood  %>% as.data.frame(),
+  file = paste0(dir.result.cross.meta.analysis, "cross_tissue_meta_analysis_glm_using_AD_vs_CN_DMR.csv")
+)
+```
+
+## Add annotation to input DMR
+```{R, eval = FALSE}
+library(rGREAT)
+regions.gr <- meta.with.blood$inputRegion_chr %>% 
+  as.data.frame %>% separate(col = ".",into = c("chr","start","end")) %>% 
+  makeGRangesFromDataFrame()
+job <- submitGreatJob(regions.gr, species = "hg19")
+regionsToGenes <-  data.frame(plotRegionGeneAssociationGraphs(job))
+
+regionsToGenes$GREAT_annotation <- ifelse(
+  regionsToGenes$distTSS > 0,
+  paste0(regionsToGenes$gene, " (+", regionsToGenes$distTSS, ")"),
+  paste0(regionsToGenes$gene, " (", regionsToGenes$distTSS, ")"))
+regionsToGenes <- regionsToGenes[
+  ,c("seqnames", "start", "end", "GREAT_annotation")
+]
+great <- regionsToGenes %>%
+  group_by(seqnames, start, end) %>%
+  mutate(GREAT_annotation = paste0(GREAT_annotation,collapse = ";")) %>% unique()
+great$inputRegion_chr <- paste0(great$seqnames,":",great$start,"-",great$end)
+meta.with.blood.annotated <- dplyr::left_join(meta.with.blood,great)
+
+
+load("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/datasets/Aux/E073_15_coreMarks_segments.rda")
+
+add_annotation <- function(result){
+  
+  message("Annotating E073_15_coreMarks_segments")
+  
+  result.gr <- result$inputRegion_chr %>% 
+  as.data.frame %>% separate(col = ".",into = c("chr","start","end")) %>% 
+  makeGRangesFromDataFrame()
+  
+  hits <- findOverlaps(result.gr, ChmmModels.gr) %>% as.data.frame()
+  hits$state <- ChmmModels.gr$state[hits$subjectHits]
+  hits$region <- result$inputRegion_chr[hits$queryHits]
+  hits <- hits %>% 
+    group_by(region) %>% 
+    summarise(states = paste0(state, collapse = ",")) %>%
+    ungroup()
+  
+  result$E073_15_coreMarks_segments_state <- hits$states[match(result$inputRegion_chr,hits$region)]
+  
+  message("Annotating Island")
+  
+  result$chrom <- result$seqnames
+  result <- coMethDMR:::AnnotateResults(result, arrayType = "EPIC", nCores_int = 6)
+  result$chrom <-  result$chr <- NULL
+  return(result)
+}
+```
+
+```{R, eval = FALSE}
+meta.with.blood.annotated <- meta.with.blood.annotated %>% add_annotation()
+meta.with.blood.annotated.sig <- meta.with.blood.annotated %>% dplyr::filter(fdr < 0.05) 
+
+readr::write_csv(
+  meta.with.blood.annotated  %>% as.data.frame(),
+  file = paste0(dir.result.cross.meta.analysis, "cross_tissue_meta_analysis_glm_using_AD_vs_CN_DMR_annotated.csv")
+)
+readr::write_csv(
+  meta.with.blood.annotated.sig  %>% as.data.frame(),
+  file = paste0(dir.result.cross.meta.analysis, "cross_tissue_meta_analysis_glm_using_AD_vs_CN_DMR_annotated_fdr_0_05.csv")
+)
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```
+

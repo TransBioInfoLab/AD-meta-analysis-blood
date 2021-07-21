@@ -1,4 +1,15 @@
-setwd("~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples")
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article:
+# Integrative meta-analysis of epigenome-wide association studies
+# identifies genomic and
+# epigenomics differences in the brain and the blood in Alzheimer’s disease
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Authors: 
+# - Tiago C. silva
+# - Lily Wang
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Date: 21 July 2021
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 #-----------------------------------------------------------------------------
 # Select cpgs
 #-----------------------------------------------------------------------------

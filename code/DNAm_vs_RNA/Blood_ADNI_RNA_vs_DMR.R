@@ -8,12 +8,17 @@
 # - Tiago C. silva
 # - Lily Wang
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
-# Date: 12 July 2021
+# Date: 21 July 2021
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Article section: 
+# Correlations between methylation levels of significant CpGs and DMRs in AD 
+# with expressions of nearby genes
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Analysis in blood samples (ADNI):
+# target gene ~ DMR (median of cpgs in DMR)
 #-----------------------------------------------------------------------------
-# MethReg analysis without TF
-# target gene ~ CpG 
-#-----------------------------------------------------------------------------
+# Libs
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=
 library(coMethDMR)
 path.mathReg <- "AD-meta-analysis-blood-samples/analysis_results/RNA_vs_DNAm"
 dir.create(path.mathReg,recursive = TRUE,showWarnings = FALSE)

@@ -92,7 +92,9 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 | File                 | Dataset | Link |
 |----------------------|-------------|-------------|
 | code/ADNI/ADNI_SAS.Rmd        |   ADNI  | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/ADNI/ADNI_SAS.Rmd) |
+| code/ADNI/ADNI_DMR_analysis_SAS.Rmd        |   ADNI  | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/ADNI/ADNI_DMR_analysis_SAS.Rmd) |
 | code/AIBL/AIBL.Rmd           |   AIBL    | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/AIBL/AIBL.Rmd) |
+| code/AIBL/AIBL_DMR.Rmd           |   AIBL    | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/AIBL/AIBL_DMR.Rmd) |
 | code/Matched_data_ADNI/matched_RNA_DNAm_data_and_residuals.R          |   ADNI    | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/Matched_data_ADNI/matched_RNA_DNAm_data_and_residuals.R) |
 | code/Clinical/clinical_info.Rmd          |   ADNI & AIBL    | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/Clinical/clinical_info.Rmd) |
 

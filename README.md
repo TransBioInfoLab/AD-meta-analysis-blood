@@ -182,3 +182,15 @@ version  R version 4.1.0 (2021-05-18)
  tz       America/New_York            
  date     2021-07-12      
 ```
+
+# ADNI Acknowledgement
+Data used in preparation of this article were obtained from the Alzheimer’s Disease Neuroimaging Initiative
+(ADNI) database (adni.loni.usc.edu). As such, the investigators within the ADNI contributed to the design
+and implementation of ADNI and/or provided data but did not participate in analysis or writing of this report. A complete listing of ADNI investigators can be found at:
+http://adni.loni.usc.edu/wp-content/uploads/how_to_apply/ADNI_Acknowledgement_List.pdf
+
+# References
+
+1. Vasanthakumar, A. et al. Harnessing peripheral DNA methylation differences in the Alzheimer's Disease Neuroimaging Initiative (ADNI) to reveal novel biomarkers of disease. Clin Epigenetics 12, 84 (2020).
+
+2. Ellis, K.A. et al. Enabling a multidisciplinary approach to the study of ageing and Alzheimer's disease: an update from the Australian Imaging Biomarkers and Lifestyle (AIBL) study. Int Rev Psychiatry 25, 699-710 (2013).

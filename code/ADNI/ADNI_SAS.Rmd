@@ -679,14 +679,7 @@ head(colnames(se))
 any(outliers %in% colnames(se))
 ```
 
-## Low varying probes were removed 
-
-```{R}
-any(rowSums(assay(se) > 0.85) == ncol(se))
-any(rowSums(assay(se) < 0.15) == ncol(se))
-```
-
-## for one sample, check distribution of type I and type II probes
+## For one sample, check distribution of type I and type II probes
 ```{R checking_part2, eval = TRUE}
 library(sm)
 

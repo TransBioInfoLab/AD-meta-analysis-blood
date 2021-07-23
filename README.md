@@ -100,13 +100,13 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 ### Blood samples meta-analysis
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/meta-analysis/meta-analysis-two-cohorts_glm.Rmd       |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/meta-analysis/meta-analysis-two-cohorts_glm.Rmd) |
 
 ### Cross-tissue meta-analysis	
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis.Rmd) |
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd) |
 
@@ -114,14 +114,14 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 ### Functional annotation of significant methylation differences
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/annotations/create_great_annotation.R     |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/annotations/create_great_annotation.R) |
 | code/annotations/annotate_enhancer.R    |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/annotations/annotate_enhancer.R) |
 
 ### Correlations between methylation levels of significant CpGs and DMRs in AD with expressions of nearby genes
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/DNAm_vs_RNA/Blood_ADNI_RNA_vs_DMR.R      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/DNAm_vs_RNA/Blood_ADNI_RNA_vs_DMR.R) |
 | code/DNAm_vs_RNA/Blood_ADNI_RNA_vs_cpg.R      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/DNAm_vs_RNA/Blood_ADNI_RNA_vs_cpg.R) |
 | code/DNAm_vs_RNA/Brain_ROSMAP_RNA_vs_DMR.R      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/DNAm_vs_RNA/Brain_ROSMAP_RNA_vs_DMR.R) |
@@ -132,7 +132,7 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/MethReg/Blood_MethReg_DMR_cpg.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/MethReg/Blood_MethReg_DMR_cpg.R) |
 | code/MethReg/Blood_MethReg_DMR_median.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/MethReg/Blood_MethReg_DMR_median.R) |
 | code/MethReg/Blood_MethReg_cpg.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/MethReg/Blood_MethReg_cpg.R) |
@@ -143,7 +143,7 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 ### Integrative analysis of DNA methylation differences in the brain and blood with transcriptome-wide gene expressions
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/TWAS_pathway_analysis/TWAS_approach_blood.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/TWAS_pathway_analysis/TWAS_approach_blood.R) |
 | code/TWAS_pathway_analysis/TWAS_approach_brain.R       |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/TWAS_pathway_analysis/TWAS_approach_brain.R) |
 | code/TWAS_pathway_analysis/jaccard_idx.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/TWAS_pathway_analysis/jaccard_idx.R) |
@@ -152,14 +152,14 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 ### Correlation and overlap with genetic susceptibility loci
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/Overlap_with_AD_associated_genetics_loci/Overlap_with_AD_associated_genetics_loci.R       |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/Overlap_with_AD_associated_genetics_loci/Overlap_with_AD_associated_genetics_loci.R) |
 
 
 ### Correlation of AD-associated CpGs and DMRs methylation levels in blood and brain samples	
 
 | File                 | Link |
-|----------------------|-------------|-------------|
+|----------------------|-------------|
 | code/MethReg/Blood_MethReg_DMR_cpg.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/MethReg/Blood_MethReg_DMR_cpg.R) |
 
 

@@ -104,7 +104,9 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 | File                 | Link |
 |----------------------|-------------|
 | code/meta-analysis/meta-analysis-two-cohorts_glm.Rmd       |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/meta-analysis/meta-analysis-two-cohorts_glm.Rmd) |
+| code/meta-analysis/meta-analysis-two-cohorts_glm_DMR.Rmd      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/meta-analysis/meta-analysis-two-cohorts_glm_DMR.Rmd) |
 
+ 
 ### Cross-tissue meta-analysis	
 
 | File                 | Link |

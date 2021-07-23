@@ -1,0 +1,246 @@
+---
+title: "DMR Meta-analysis dataset - using bacon inflation- and bias-corrected P-values"
+author: "Tiago C. Silva, Lanyu Zhang, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    highlight: breezedark
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: false
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline     
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+# Main libraries and configuration
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+library(ExperimentHub)
+library(GenomicRanges)
+library(tidyr)
+```
+
+# Meta-analysis of Genomic Regions
+
+## Paths
+```{R}
+dir.base <- "~/TBL Dropbox/Tiago Silva//AD-meta-analysis-blood-samples/"
+dir.data.aux <- file.path(dir.base,"datasets/Aux/") 
+dir.results <- file.path(dir.base,"analysis_results")
+dir.result.meta.analysis <- file.path(dir.results, "meta_analysis/DMR_Logistic_regression_model/")
+dir.result.meta.analysis.ad <- file.path(dir.result.meta.analysis, "AD_vs_CN/")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+## Import datasets and pre-process for each cohort 
+
+# Meta-analysis Single-cpgs
+
+## Import datasets and pre-process for each cohort 
+
+```{R, eval = TRUE}
+library(dplyr)
+results.files <- dir(
+  path = dir.results,
+  pattern = "with_inflation.csv",
+  recursive = TRUE,
+  full.names = TRUE,
+  ignore.case = TRUE
+)
+results.files <- results.files[grep("DMR",results.files,invert = F)]
+results.files <- results.files[grep("Ordinary",results.files,invert = T)]
+basename(results.files)
+```
+
+## Create a merged final dataset 
+```{R, eval = FALSE}
+
+list.of.results <- plyr::alply(results.files,.margins = 1,.fun = function(f){
+  data <- readr::read_csv(f, col_types = readr::cols())
+  dataset <- basename(dirname(dirname(dirname(f))))
+  data <- data %>% dplyr::select(contains(c("region","bacon","Std..Error","fdr","tValue","z.value","Pr...z..","t.value","Error","Estimate","Pr...t..")))
+  data <- data %>% rename_with(
+    .fn = function(x) {
+      paste0(dataset,"_",x)
+    },
+    contains(c("nCoMethRegions_num","bacon","fdr","tValue","z.value","Pr...z..","t.value","Error","Estimate","Pr...t.."))
+  )
+  colnames(data)[1] <-  paste0(dataset,"_",  colnames(data)[1])
+  data  
+})
+names(list.of.results) <- paste0(basename(dirname(dirname(dirname(results.files)))),"_", basename(results.files))
+
+multi_cohorts_AD_vs_CN <- Reduce(
+  function(x,y, ...) inner_join(
+    x[c("inputRegion_chr",grep("ADNI_|AIBL_",colnames(x),value = TRUE))], 
+    y[c("inputRegion_chr",grep("ADNI_|AIBL_",colnames(y),value = TRUE))], 
+    ..., 
+    by = "inputRegion_chr"
+  ),
+  list.of.results[grep("AD_vs_CN",names(list.of.results))]
+) %>% unique()# keep only results with the two cohorts
+
+```
+
+## Meta analysis 
+```{R, eval = FALSE}
+library(meta)
+
+doParallel::registerDoParallel(cores = 6)
+calculate_meta_analysis <- function(multi_cohorts){
+  plyr::adply(
+    .data = multi_cohorts, 
+    .margins = 1, 
+    .fun =  function(row){
+      
+      est <- row[grep("Estimate.bacon",colnames(row))] %>% as.numeric
+      
+      direction <-  paste(
+        ifelse(
+          is.na(est), ".",
+          ifelse(est > 0, "+", "-")
+        ), collapse = "")
+      
+      se <- row[grep("StdErr.bacon",colnames(row))] %>% as.numeric
+      cohort <- gsub("_StdErr.bacon","",grep("StdErr.bacon",colnames(row),value = T))
+      df <- data.frame(
+        cohort = cohort,
+        est = est,
+        se = se,
+        stringsAsFactors = FALSE
+      )
+      
+      f <- metagen(
+        TE = est,
+        seTE = se,
+        data = df
+      )
+      
+      tibble::tibble(
+        cpg = row$inputRegion_chr,
+        estimate.bacon = f$TE.fixed,
+        se.bacon = f$seTE.fixed,
+        pVal.fixed.bacon = f$pval.fixed,
+        pVal.random.bacon = f$pval.random,
+        pValQ.bacon = f$pval.Q,
+        direction.bacon = direction
+      )
+    }  , .progress = "time",
+    .parallel = TRUE,
+    .id = NULL
+  )
+}
+calculate_meta_analysis_pvalue <- function(meta_df, pvalue.type = "fixed"){
+    ### create final pVal
+  if (pvalue.type == "fixed"){
+    meta_df$pVal.final.bacon <- meta_df$pVal.fixed.bacon
+  } else if (pvalue.type == "random"){
+    meta_df$pVal.final.bacon <- meta_df$pVal.random.bacon
+  } else {
+    print("both")
+    meta_df$pVal.final.bacon <- ifelse(
+        meta_df$pValQ.bacon > 0.05, meta_df$pVal.fixed.bacon, meta_df$pVal.random.bacon
+    )
+  }
+  ### calculate FDR
+  meta_df$fdr.bacon <- p.adjust(meta_df$pVal.final.bacon, method = "fdr")
+  ### order meta_df
+  meta_final_df <- meta_df[, c(grep("_",colnames(meta_df),invert = T),
+                               grep("_",colnames(meta_df),invert = F))
+  ]
+  meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final.bacon),]
+  return(meta_final_ordered_df)
+}
+```
+
+```{R meta_ad, eval = FALSE}
+meta_df_AD_vs_CN <- multi_cohorts_AD_vs_CN %>% calculate_meta_analysis()
+meta_df_AD_vs_CN_fixed <- meta_df_AD_vs_CN %>% calculate_meta_analysis_pvalue(pvalue.type = "fixed")
+
+readr::write_csv(
+  meta_df_AD_vs_CN_fixed  %>% as.data.frame(),
+  file = paste0(dir.result.meta.analysis.ad, "meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_DMR.csv")
+)
+```
+
+
+## Add annotation to input cpgs
+```{R, eval = FALSE}
+load(file.path(dir.data.aux,"great_coMethDMR_EPIC_array_annotation_ADNI.rda"))
+load(file.path(dir.data.aux,"E073_15_coreMarks_segments.rda"))
+
+add_annotation <- function(result){
+    
+    message("Annotating E073_15_coreMarks_segments")
+    result <- result %>% tidyr::separate(
+        col = "inputRegion_chr",
+        into = c("seqnames","start","end"),
+        remove = FALSE
+    )
+    result$start <- as.numeric(result$start)
+    result$end <- as.numeric(result$end)
+    result.gr <- result %>% makeGRangesFromDataFrame(
+        start.field = "start",
+        end.field = "end",
+        seqnames.field = "seqnames"
+    )
+    hits <- findOverlaps(result.gr, ChmmModels.gr) %>% as.data.frame()
+    hits$state <- ChmmModels.gr$state[hits$subjectHits]
+    hits$region <- result$inputRegion_chr[hits$queryHits]
+    result$E073_15_coreMarks_segments_state <- hits$state[match(result$inputRegion_chr,hits$region)]
+    
+    message("Annotating GREAT")
+    
+    result <- dplyr::left_join(result, great,by = c("seqnames","start","end"))
+    
+    message("Annotating Island")
+    
+    result$chrom <- result$seqnames
+    result <- AnnotateResults(result, arrayType = "EPIC", nCores_int = 10)
+    result$chrom <-  result$chr <- NULL
+    
+    if("fdr.bacon" %in% colnames(result)) result <- result[order(result$fdr.bacon),]
+    if("AdjP(BH)" %in% colnames(result)) result <- result[order(result$`AdjP(BH)`),]
+    return(result)
+    
+}
+```
+
+
+```{R, eval = FALSE}
+meta_df_AD_vs_CN.annotated <- meta_df_AD_vs_CN_fixed %>% add_annotation()
+meta_df_AD_vs_CN.annotated.sig <- meta_df_AD_vs_CN.annotated %>% dplyr::filter(pVal.final.bacon < 0.05) 
+
+readr::write_csv(
+  meta_df_AD_vs_CN.annotated  %>% as.data.frame(),
+  file = paste0(dir.result.meta.analysis.ad, "meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_DMR_annotated.csv")
+)
+
+readr::write_csv(
+  meta_df_AD_vs_CN.annotated.sig  %>% as.data.frame(),
+  file = paste0(
+    dir.result.meta.analysis.ad,
+    "meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_DMR_annotated_pvalue_cut_off_0_05.csv"
+  )
+)
+
+meta_df_AD_vs_CN.annotated.comethylated <- meta_df_AD_vs_CN.annotated[meta_df_AD_vs_CN.annotated$AIBL_nCoMethRegions_num > 0 | meta_df_AD_vs_CN.annotated$ADNI_nCoMethRegions_num > 0,]
+meta_df_AD_vs_CN.annotated.comethylated$fdr.bacon <- p.adjust(meta_df_AD_vs_CN.annotated.comethylated$pVal.final.bacon,method = "BH")
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```
+

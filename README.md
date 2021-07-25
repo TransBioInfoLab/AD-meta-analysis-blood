@@ -8,30 +8,6 @@ This github repository includes scripts used for the analyses in the above manus
 
 In this work, we performed a meta-analysis of two large independent blood-based epigenome-wide association studies, the ADNI and AIBL studies, and identified 5 CpGs mapped to the SPIDR, CDH6 genes, and intergenic regions that were significantly associated with AD diagnosis. Furthermore, to identify blood-based DNA methylation markers that also change with underlying neuropathology in the brain, we next performed a cross-tissue meta-analysis by combining these blood DNA methylation datasets with four additional DNA methylation datasets, which included a total of  1030 brain prefrontal cortex samples. Our findings provide a useful resource for future biomarker studies in AD.  
 
-### Required R packages 
-
-```r
-if (!requireNamespace("BiocManager", quietly = TRUE)){
-  install.packages("BiocManager")
-}
-BiocManager::install(version = "3.13",ask = FALSE) # Install last version of Bioconductor
-
-list.of.packages <- c("readr", "readxl", "plyr", "dplyr", "tidyr", "GenomicRanges", "SummarizedExperiment", "mygene", "ggpubr", "stats", "gt", "fgsea", "minfi", "bacon", "wateRmelon", "missMethyl", "DMRcate", "lumi", "RPMM","sm", "MethReg", "writexl", "readxl", "gridExtra", "doParallel", "ReMapEnrich", "EpiDISH", "GEOquery", "ggrepel",
-"DT", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "RVenn", "GWASTools", "meta", "metap", "ExperimentHub", "lubridate")
-
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) BiocManager::install(new.packages)
-
-devtools::install_github("igordot/msigdbr")
-```
-
-For ADNIMERGE, download it from https://ida.loni.usc.edu/: Merged ADNI 1/GO/2 Packages for R
-
-```r
-install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source")
-```
-
-## Analysis
 ### Study cohorts, Preprocessing of DNA methylation data, Single Cohort analysis
 
 
@@ -112,10 +88,31 @@ install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source
 |----------------------|-------------|
 | code/MethReg/Blood_MethReg_DMR_cpg.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/MethReg/Blood_MethReg_DMR_cpg.R) |
 
+# For reproducible research
 
+The following R packages are required: 
 
+```r
+if (!requireNamespace("BiocManager", quietly = TRUE)){
+  install.packages("BiocManager")
+}
+BiocManager::install(version = "3.13",ask = FALSE) # Install last version of Bioconductor
 
-# Platform information
+list.of.packages <- c("readr", "readxl", "plyr", "dplyr", "tidyr", "GenomicRanges", "SummarizedExperiment", "mygene", "ggpubr", "stats", "gt", "fgsea", "minfi", "bacon", "wateRmelon", "missMethyl", "DMRcate", "lumi", "RPMM","sm", "MethReg", "writexl", "readxl", "gridExtra", "doParallel", "ReMapEnrich", "EpiDISH", "GEOquery", "ggrepel",
+"DT", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "RVenn", "GWASTools", "meta", "metap", "ExperimentHub", "lubridate")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) BiocManager::install(new.packages)
+
+devtools::install_github("igordot/msigdbr")
+```
+
+For ADNIMERGE, download it from https://ida.loni.usc.edu/: Merged ADNI 1/GO/2 Packages for R
+
+```r
+install.packages("/path/to/ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source")
+```
+The platform information are: 
 
 ```r
 version  R version 4.1.0 (2021-05-18)
@@ -129,7 +126,7 @@ version  R version 4.1.0 (2021-05-18)
  date     2021-07-12      
 ```
 
-# ADNI Acknowledgement
+# Acknowledgement
 Data used in preparation of this article were obtained from the Alzheimer’s Disease Neuroimaging Initiative
 (ADNI) database (adni.loni.usc.edu). As such, the investigators within the ADNI contributed to the design
 and implementation of ADNI and/or provided data but did not participate in analysis or writing of this report. A complete listing of ADNI investigators can be found at:

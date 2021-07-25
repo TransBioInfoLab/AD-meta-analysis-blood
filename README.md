@@ -1,31 +1,14 @@
 
-# Introduction 
+# Cross-tissue meta-analysis of blood and brain epigenome-wide association studies in Alzheimer’s disease 
+Tiago C. Silva, Juan I. Young, Lanyu Zhang, Lissette Gomez, Michael A. Schmidt, Achintya Varma, Xi Chen, Eden R. Martin, Lily Wang
 
-This repository contains the analysis R code for Integrative meta-analysis of epigenome-wide association studies in Alzheimer’s disease. Some of the analysis were made using SAS were not included in this repository.
+### Description
 
-## Article
+This github repository includes scripts used for the analyses in the above manuscript. 
 
-Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease
+In this work, we performed a meta-analysis of two large independent blood-based epigenome-wide association studies, the ADNI and AIBL studies, and identified 5 CpGs mapped to the SPIDR, CDH6 genes, and intergenic regions that were significantly associated with AD diagnosis. Furthermore, to identify blood-based DNA methylation markers that also change with underlying neuropathology in the brain, we next performed a cross-tissue meta-analysis by combining these blood DNA methylation datasets with four additional DNA methylation datasets, which included a total of  1030 brain prefrontal cortex samples. Our findings provide a useful resource for future biomarker studies in AD.  
 
-## Authors
-
-- Tiago C Silva
-- Juan I. Young
-- Lanyu Zhang
-- Lissette Gomez
-- Michael A. Schmidt
-- Achintya Varma
-- Xi Chen
-- Eden R. Martin
-- Lily Wang
-
-
-# Code
-
-
-
-
-## Install required packages
+### Required R packages 
 
 ```r
 if (!requireNamespace("BiocManager", quietly = TRUE)){
@@ -33,46 +16,9 @@ if (!requireNamespace("BiocManager", quietly = TRUE)){
 }
 BiocManager::install(version = "3.13",ask = FALSE) # Install last version of Bioconductor
 
-list.of.packages <- c(
-  "readr",
-  "readxl",
-  "plyr",
-  "dplyr",
-  "tidyr",
-  "GenomicRanges",
-  "SummarizedExperiment",
-  "mygene",
-  "ggpubr",
-  "stats",
-  "gt",
-  "fgsea",
-  "minfi",
-  "bacon",
-  "wateRmelon",
-  "missMethyl",
-  "DMRcate",
-  "lumi",
-  "RPMM",
-  "sm",
-  "MethReg",
-  "writexl",
-  "readxl",
-  "gridExtra",
-  "doParallel",
-  "ReMapEnrich",
-  "EpiDISH",
-  "GEOquery",
-  "ggrepel",
-  "DT",
-  "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
-  "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
-  "RVenn",
-  "GWASTools",
-  "meta",
-  "metap",
-  "ExperimentHub",
-  "lubridate"
-)
+list.of.packages <- c("readr", "readxl", "plyr", "dplyr", "tidyr", "GenomicRanges", "SummarizedExperiment", "mygene", "ggpubr", "stats", "gt", "fgsea", "minfi", "bacon", "wateRmelon", "missMethyl", "DMRcate", "lumi", "RPMM","sm", "MethReg", "writexl", "readxl", "gridExtra", "doParallel", "ReMapEnrich", "EpiDISH", "GEOquery", "ggrepel",
+"DT", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "RVenn", "GWASTools", "meta", "metap", "ExperimentHub", "lubridate")
+
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) BiocManager::install(new.packages)
 

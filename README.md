@@ -8,7 +8,7 @@ This github repository includes scripts used for the analyses in the above manus
 
 In this work, we performed a meta-analysis of two large independent blood-based epigenome-wide association studies, the ADNI and AIBL studies, and identified 5 CpGs mapped to the SPIDR, CDH6 genes, and intergenic regions that were significantly associated with AD diagnosis. Furthermore, to identify blood-based DNA methylation markers that also change with underlying neuropathology in the brain, we next performed a cross-tissue meta-analysis by combining these blood DNA methylation datasets with four additional DNA methylation datasets, which included a total of  1030 brain prefrontal cortex samples. Our findings provide a useful resource for future biomarker studies in AD.  
 
-### Study cohorts, Preprocessing of DNA methylation data, Single Cohort analysis
+### 1. Study cohorts, Preprocessing of DNA methylation data, Single Cohort analysis
 
 
 | File                 | Dataset | Link |
@@ -21,7 +21,7 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/Clinical/clinical_info.Rmd          |   ADNI & AIBL    | [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/Clinical/clinical_info.Rmd) |
 
 
-### Blood samples meta-analysis
+### 2. Blood samples meta-analysis
 
 | File                 | Link |
 |----------------------|-------------|
@@ -29,7 +29,7 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/meta-analysis/meta-analysis-two-cohorts_glm_DMR.Rmd      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/meta-analysis/meta-analysis-two-cohorts_glm_DMR.Rmd) |
 
  
-### Cross-tissue meta-analysis	
+### 3. Cross-tissue meta-analysis	
 
 | File                 | Link |
 |----------------------|-------------|
@@ -37,14 +37,14 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd) |
 
 
-### Functional annotation of significant methylation differences
+### 4. Functional annotation of significant methylation differences
 
 | File                 | Link |
 |----------------------|-------------|
 | code/annotations/create_great_annotation.R     |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/annotations/create_great_annotation.R) |
 | code/annotations/annotate_enhancer.R    |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/annotations/annotate_enhancer.R) |
 
-### Correlations between methylation levels of significant CpGs and DMRs in AD with expressions of nearby genes
+### 5. Correlations between methylation levels of significant CpGs and DMRs in AD with expressions of nearby genes
 
 | File                 | Link |
 |----------------------|-------------|
@@ -54,7 +54,7 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/DNAm_vs_RNA/Brain_ROSMAP_RNA_vs_cpg.R      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/DNAm_vs_RNA/Brain_ROSMAP_RNA_vs_cpg.R) |
 
 
-### MethReg integrative analysis
+### 6. MethReg integrative analysis
 
 
 | File                 | Link |
@@ -66,7 +66,7 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 
 
 
-### Integrative analysis of DNA methylation differences in the brain and blood with transcriptome-wide gene expressions
+### 7. Integrative analysis of DNA methylation differences in the brain and blood with transcriptome-wide gene expressions
 
 | File                 | Link |
 |----------------------|-------------|
@@ -75,14 +75,14 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/TWAS_pathway_analysis/jaccard_idx.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/TWAS_pathway_analysis/jaccard_idx.R) |
 
 
-### Correlation and overlap with genetic susceptibility loci
+### 8. Correlation and overlap with genetic susceptibility loci
 
 | File                 | Link |
 |----------------------|-------------|
 | code/Overlap_with_AD_associated_genetics_loci/Overlap_with_AD_associated_genetics_loci.R       |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/Overlap_with_AD_associated_genetics_loci/Overlap_with_AD_associated_genetics_loci.R) |
 
 
-### Correlation of AD-associated CpGs and DMRs methylation levels in blood and brain samples	
+### 9. Correlation of AD-associated CpGs and DMRs methylation levels in blood and brain samples	
 
 | File                 | Link |
 |----------------------|-------------|

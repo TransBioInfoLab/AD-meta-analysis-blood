@@ -1,0 +1,314 @@
+---
+title: "Evaluating effect of APOE "
+date: "`r Sys.Date()`"
+output: 
+ html_document:
+    theme:
+      bg: "#202123"
+      fg: "#B8BCC2"
+      primary: "#EA80FC"
+      base_font: !expr bslib::font_google("Barlow")
+    highlight: zenburn
+    toc: true
+    df_print: paged
+    code_download: false
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+vignette: >
+    %\VignetteIndexEntry{Evaluating effect of APOE}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+knitr::opts_knit$set(root.dir = "../../")
+```
+
+# Libs and Paths
+```{r libs, include=T,message=F,warning=F}
+library(readr)
+library(dplyr)
+library(fgsea)
+library(msigdbr)
+library(SummarizedExperiment)
+library(tidyverse)
+library(caret)
+library(factoextra)
+library(pROC)
+library(minfi)
+```
+
+# Get Cpgs
+
+## AD associated cpgs (AD vs CN) - CpGs
+
+```{r}
+#---------------------------------------------------------------------------------------------------------------
+# (a) AD-associated CpGs: include both 50 AD-associated CpGs + all CpGs from the 9 DMRs in Table 2 
+#---------------------------------------------------------------------------------------------------------------
+AD_vs_CN <- readxl::read_xlsx(
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V3.xlsx",skip = 3
+)
+
+cpgs.ad.cn <- AD_vs_CN$cpg
+length(cpgs.ad.cn)
+```
+
+## AD associated cpgs (AD vs CN) - DMR
+```{r}
+
+dmr.ad.cn <- c(
+  "chr1:205819345-205819464",
+  "chr20:36148672-36148861",
+  "chr1:206786170-206786181",
+  "chr20:36149081-36149232",
+  "chr13:21578684-21578734",
+  "chr14:56777451-56777526",
+  "chr7:2728841-2728913",
+  "chr1:202172848-202172913",
+  "chr1:223566643-223566710"
+)
+length(dmr.ad.cn)
+dmr.ad.cn.cpgs.hm450 <- lapply(dmr.ad.cn, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "450k")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+dmr.ad.cn.cpgs.epic <- lapply(dmr.ad.cn, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "EPIC")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+
+ad.associated.cpgs.with.dmr.cpgs <- c(cpgs.ad.cn,dmr.ad.cn.cpgs.epic,dmr.ad.cn.cpgs.hm450) %>% unique
+length(ad.associated.cpgs.with.dmr.cpgs)
+```
+
+
+## AD prioritized Cpgs
+```{R}
+#---------------------------------------------------------------------------------------------------------------
+# (b) cross-tissue (i.e., prioritized CpGs): include both 97 CpGs + all CpGs from the 10 DMRs in Fig 2
+#---------------------------------------------------------------------------------------------------------------
+cpgs.prioritized <- readxl::read_xlsx(
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood-clean.xlsx",skip = 3
+)
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
+length(cpgs.prioritized)
+```
+
+
+## AD prioritized DMRs
+```{R}
+
+dmr.prioritized <- c(
+  "chr16:57405979-57406511",
+  "chr6:31554829-31555016",
+  "chr6:30853948-30854233",
+  "chr15:39871808-39872186",
+  "chr6:166876490-166877038",
+  "chr1:167090618-167090757",
+  "chr17:7832680-7832943",
+  "chr17:62009607-62009835",
+  "chr12:125028166-125028339",
+  "chr10:682693-682871"
+)
+length(dmr.prioritized)
+
+dmr.prioritized.cpgs.hm450 <- lapply(dmr.prioritized, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "450k")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+dmr.prioritized.cpgs.epic <- lapply(dmr.prioritized, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "EPIC")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+ad.prioritized.cpgs.with.dmr.cpgs <- c(cpgs.prioritized,dmr.prioritized.cpgs.epic,dmr.prioritized.cpgs.hm450) %>% unique
+length(ad.prioritized.cpgs.with.dmr.cpgs)
+```
+
+
+# Data
+
+```{R data}
+#-----------------------------------------------------------------------------
+# ADNI
+#-----------------------------------------------------------------------------
+cohort <- "ADNI"
+dir.base <- getwd()
+dir.data <- file.path(dir.base,"datasets/",cohort,"/") 
+dir.data.pca <- file.path(dir.data,"/data/DNA_methylation/pca_filtering/") 
+adni.se <- readRDS(
+  file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS")
+)
+
+adni.se <- adni.se[,!adni.se$DX %in% "MCI" ]
+adni.se <- adni.se[,!is.na(adni.se$DX)]
+table(adni.se$DX)
+# Alzheimer's disease     healthy control 
+#  135                    356 
+
+file.age.adni <- file.path(dir.data,"/data/DNA_methylation/ADNI_Predicted_age.xlsx")
+if(!file.exists(file.age.adni)){
+  age <- age.predictor(assay(adni.se))
+  tab.age <- age$age.pred
+  tab.age$Sample <- rownames(tab.age)
+  writexl::write_xlsx(tab.age,file.age.adni)
+} else {
+  tab.age <- readxl::read_xlsx(file.age.adni)
+}
+tab.age$barcodes <- tab.age$Sample
+
+
+pheno <- colData(adni.se) %>% merge(tab.age,sort = FALSE)
+pheno$DIAGNOSIS <- factor(
+  ifelse(pheno$DX == "CN", "healthy control", "Alzheimer's disease"),
+  levels = c("healthy control", "mild cognitive impairment", "Alzheimer's disease")
+) %>% droplevels()
+pheno$SEX <- pheno$PTGENDER  %>% factor()
+pheno$AGE <- pheno$age_at_visit
+pheno$age.pred.Elastic_Net <- pheno$Elastic_Net
+pheno$DIAGNOSIS <- droplevels(pheno$DIAGNOSIS)
+plyr::count(pheno$DIAGNOSIS)
+
+# Keep only last visit 
+pheno <- pheno %>% as.data.frame %>%  dplyr::group_by(RID) %>% filter(age_at_visit == max(age_at_visit)) 
+adni.se <- adni.se[,adni.se$barcodes %in% pheno$barcodes]
+
+# Put them in the same order
+adni.se <- adni.se[,pheno$barcodes]
+all(colnames(adni.se) == pheno$barcodes)
+
+plyr::count(pheno$DIAGNOSIS)
+```
+
+# MRS
+
+```{R mrs}
+#---------------------------------------------------------------------------------------------------------------
+# 2. Polygenic methylation risk scores (MRS score)
+# (1) compute these as sum of beta values weighted by meta-analysis effect estimate (column “estimate.bacon”) in meta-analysis results file
+#---------------------------------------------------------------------------------------------------------------
+get_MRS <- function(cpgs){
+  meta.analysis.results <- readr::read_csv("analysis_results/meta_analysis/Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv")
+  MRS.weights <- meta.analysis.results$estimate.bacon[match(c(cpgs),meta.analysis.results$cpg)]
+  names(MRS.weights) <- c(cpgs)
+  MRS.weights %>% hist %>% plot
+  
+  # Remove if Cpgs were not evaluated  in meta-analysis
+  MRS.weights <- MRS.weights[!is.na(MRS.weights)] 
+  
+  # Only keep the ones in ADNI
+  common.cpgs <- intersect(rownames(adni.se),names(MRS.weights))
+  
+  # Calculate the MRS for each sample beta dot product weights
+  # MRS.weights
+  MRS <- MRS.weights[common.cpgs] %*% assay(adni.se)[common.cpgs,]
+  
+  print(all(colnames(MRS) == pheno$barcodes))
+  return(MRS)
+}
+
+pheno <- cbind(pheno,
+               data.frame(
+                 "MRS_prioritized_cpgs" = get_MRS(cpgs.prioritized) %>% as.numeric(),
+                 "MRS_associated_cpgs" = get_MRS(cpgs.ad.cn) %>% as.numeric() 
+               )
+)
+
+pheno$MRS_prioritized_cpgs %>% hist
+pheno$MRS_associated_cpgs %>% hist
+```
+
+# Evaluate AUC
+
+##  Aux function to get AUC using the EIC package + glm fitted model
+
+```{R get_auc}
+get_auc <- function(model.formula = model.formula,data.training = NULL ,data.testing = NULL){
+  model <- glm(
+    formula = model.formula,
+    data = data.training, 
+    family = binomial
+  )
+  #-----------------------------------------------------------------------------
+  #  Testing model
+  #-----------------------------------------------------------------------------
+  data.testing$probabilities <- model %>% predict(data.testing, type = "response")
+  result <- roc(DIAGNOSIS ~ probabilities, data = data.testing,print.auc=TRUE)
+  auc <- result$auc
+  
+  return(auc)
+}
+```
+
+## Set models
+```{R}
+#-----------------------------------------------------------------------------
+# Models
+#-----------------------------------------------------------------------------
+set.seed(12345)
+var.predictors.no.apoe <- c("MRS", "AGE", "SEX", "B", "NK" ,"CD4T", "CD8T","Mono", "Neutro")
+var.predictors.with.apoe <- c(var.predictors.no.apoe, "APOE4")
+var.response <- "DIAGNOSIS"
+model1 <- paste0(var.response, " ~ ",  paste(var.predictors.no.apoe,collapse = " + "))
+model2 <- paste0(var.response, " ~ ",  paste(var.predictors.with.apoe,collapse = " + "))
+
+data <- pheno[,c("DIAGNOSIS","APOE4","MRS_associated_cpgs","MRS_prioritized_cpgs", "AGE", "SEX", "B", "NK" ,"CD4T", "CD8T","Mono", "Neutro")]
+```
+
+## Split data
+```{R}
+#-----------------------------------------------------------------------------
+# Split data in 10 balanced groups
+#-----------------------------------------------------------------------------
+list.of.partions <- createFolds(data$DIAGNOSIS,k = 10)
+df.foldid <- list.of.partions %>% plyr::ldply(.fun = function(x) data.frame(x)) %>% dplyr::arrange(x)
+print(table(df.foldid$.id,data$DIAGNOSIS[df.foldid$x]))
+```
+
+## Fit model and test
+
+For each fold We will make the following (10x for each partition):
+-  train on 9 partitions   
+-  test on the one left outside
+-  get AUC
+Then we will get the average AUC.
+
+```{R tab}
+df <- list("Model1" = model1,"Model2" = model2) %>% purrr::map_dfr(.f = function(model) {
+  print(model)
+  list("MRS_associated_cpgs" = "MRS_associated_cpgs","MRS_prioritized_cpgs" = "MRS_prioritized_cpgs") %>% purrr::map_dfr(.f = function(col.mrs ) {
+    
+    print(col.mrs)
+    unique(df.foldid$.id) %>% sort %>% purrr::map_dfr(.f = function(fold){
+      print(fold)
+      data$MRS <- data[,col.mrs, drop = T]
+      data.testing <- data[df.foldid$x[df.foldid$.id == fold],]
+      data.training <- data[df.foldid$x[df.foldid$.id != fold],]
+      auc <- get_auc(model.formula = model,data.training = data.training, data.testing = data.testing)
+      data.frame("MRS" = col.mrs,"Model" = model,"Fold_ID" = fold, "AUC" = auc %>% as.numeric)
+    })
+  })
+})
+
+
+summary.tab <- df %>% dplyr::group_by(MRS,Model) %>% summarise(max(AUC), min(AUC),mean(AUC),sd(AUC))
+writexl::write_xlsx(summary.tab,path = "Eval_effect_APOE_summary_tab.xlsx")
+summary.tab %>% gt::gt()
+summary.tab %>% t
+
+```
+
+# Session info
+```{R}
+sessioninfo::session_info()
+```

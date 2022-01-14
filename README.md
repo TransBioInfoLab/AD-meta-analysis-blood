@@ -89,6 +89,13 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 |----------------------|-------------|
 | code/MethReg/Blood_MethReg_DMR_cpg.R        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/MethReg/Blood_MethReg_DMR_cpg.R) |
 
+### 10. Out-of-sample validations of AD-associated DNAm differences in an external cohort
+
+| File                 | Link |
+|----------------------|-------------|
+| code/validation/out_of_sample_validation.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/validation/out_of_sample_validation.Rmd) |
+
+
 # For reproducible research
 
 The following R packages are required: 

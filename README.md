@@ -106,8 +106,44 @@ if (!requireNamespace("BiocManager", quietly = TRUE)){
 }
 BiocManager::install(version = "3.13",ask = FALSE) # Install last version of Bioconductor
 
-list.of.packages <- c("readr", "readxl", "plyr", "dplyr", "tidyr", "GenomicRanges", "SummarizedExperiment", "mygene", "ggpubr", "stats", "gt", "fgsea", "minfi", "bacon", "wateRmelon", "missMethyl", "DMRcate", "lumi", "RPMM","sm", "MethReg", "writexl", "readxl", "gridExtra", "doParallel", "ReMapEnrich", "EpiDISH", "GEOquery", "ggrepel",
-"DT", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "RVenn", "GWASTools", "meta", "metap", "ExperimentHub", "lubridate")
+list.of.packages <- c(
+  "bacon",                                        
+  "DMRcate",                                      
+  "doParallel",                                   
+  "dplyr",                                        
+  "DT",                                           
+  "EpiDISH",                                      
+  "ExperimentHub",                                
+  "fgsea",                                        
+  "GenomicRanges",                                
+  "GEOquery",                                     
+  "ggpubr",                                       
+  "ggrepel",                                      
+  "gridExtra",                                    
+  "gt",                                           
+  "GWASTools",                                    
+  "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
+  "lubridate",                                    
+  "lumi",                                         
+  "meta",                                         
+  "metap",                                        
+  "MethReg",                                      
+  "minfi",                                        
+  "missMethyl",                                   
+  "mygene",                                       
+  "plyr",                                         
+  "readr",                                        
+  "readxl",                                       
+  "ReMapEnrich",                                  
+  "RPMM",                                         
+  "RVenn",                                        
+  "sm",                                           
+  "stats",                                        
+  "SummarizedExperiment",                         
+  "tidyr",                                        
+  "wateRmelon",                                   
+  "writexl" 
+)
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) BiocManager::install(new.packages)

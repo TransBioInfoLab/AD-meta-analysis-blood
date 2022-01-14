@@ -19,6 +19,7 @@
 library(dplyr)
 library(SummarizedExperiment)
 library(coMethDMR)
+library(MethReg)
 #-----------------------------------------------------------------------------
 # Analysis: target gene ~ CpG  uisng ROSMAP data
 #-----------------------------------------------------------------------------
@@ -28,13 +29,13 @@ library(coMethDMR)
 # CpGs with P<1E- 5 in AD vs. CN comparison
 library(readr)
 AD_vs_CN <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V3.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
 
 cpgs.prioritized <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood-clean.xlsx",skip = 3
 )
 cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
 length(cpgs.prioritized)
@@ -165,6 +166,13 @@ residuals.matched.exp <- plyr::adply(
   }, .progress = "time",
   .parallel = FALSE)
 rownames(residuals.matched.exp) <- rownames(matched.exp.log2)
+save(
+  residuals.matched.exp,
+  resid_dnam,
+  resid_met,
+  matched.phenotype,
+  file = "datasets/Aux/ROSMAP_matched_rna_dnam_residuals_cpg.rda"
+)
 
 #-------------------------------------------------------------------------------
 # Aux functions

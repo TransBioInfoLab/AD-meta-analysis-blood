@@ -26,7 +26,7 @@ library(msigdbr)
 #-----------------------------------------------------------------------------
 # CpGs with P<1E- 5 in AD vs. CN comparison
 AD_vs_CN <- readxl::read_xlsx(
-  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V2.xlsx",skip = 3
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V3.xlsx",skip = 3
 )
 cpgs.ad.cn <- AD_vs_CN$cpg
 length(cpgs.ad.cn) # 50
@@ -38,7 +38,7 @@ load("datasets/Aux/ADNI_matched_rna_dnam_residuals.rda")
 #-----------------------------------------------------------------------------
 # - compute PC1 for the 50 AD vs. CN CpGs + cpgs in 9 comp-b DMRs (prcomp function can do it) 
 #-----------------------------------------------------------------------------
-pca <- prcomp(residuals.matched.met[rownames(residuals.matched.met) %in% cpgs.all,] %>% t,center = TRUE,scale = TRUE)
+pca <- prcomp(residuals.matched.met[rownames(residuals.matched.met) %in% cpgs.ad.cn,] %>% t,center = TRUE,scale = TRUE)
 
 PC1 <- pca$x[,"PC1"]
 
@@ -69,8 +69,8 @@ c2.cp.biocarta <- msigdbr(species = "Homo sapiens", category = "C2", subcategory
 c2.cp.kegg     <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="KEGG")
 c2.cp.reactome <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="REACTOME")
 c2.cp.wiki     <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="WIKIPATHWAYS")
-
-c2.cp <- rbind (c2.cp.biocarta, c2.cp.kegg, c2.cp.reactome, c2.cp.wiki )
+c2.cp.cgp    <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="CGP")
+c2.cp <- rbind (c2.cp.biocarta, c2.cp.kegg, c2.cp.reactome, c2.cp.wiki, c2.cp.cgp)
 
 c2.cp.list <- split(x = c2.cp$human_gene_symbol, f = c2.cp$gs_name)
 
@@ -78,7 +78,7 @@ c2.cp.fgsea <- fgsea(
   pathways = c2.cp.list, 
   stats    = rank,
   minSize  = 15,
-  maxSize  = 500,
+  maxSize  = 700,
   scoreType = "pos"
 )
 
@@ -190,7 +190,7 @@ writexl::write_xlsx(
     "c5.bp.fgsea main pathways" = c5.bp.fgsea[c5.bp.fgsea$pathway %in% c5.bp.fgsea.collapsedPathways$mainPathways],
     "c2.cp.fgsea" = c2.cp.fgsea[order(c2.cp.fgsea$pval),]
   ),
-  path = "code/pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx"
+  path = "analysis_results//pathway_analysis/TWAS_analysis_only_cpg_blood.xlsx"
 )
 
 plot <- ggpubr::ggboxplot(
@@ -203,7 +203,7 @@ plot <- ggpubr::ggboxplot(
 
 ggplot2::ggsave(
   plot = plot, 
-  filename = "code/pathway_analysis/PC1_boxplot_blood.pdf",
+  filename = "analysis_results/pathway_analysis/PC1_boxplot_blood.pdf",
   width = 4,
   height = 4
 )

@@ -45,7 +45,6 @@ dir.data.aux <- file.path(dir.base,"datasets/Aux/")
 dir.results <- file.path(dir.base,"analysis_results")
 dir.result.meta.analysis <- file.path(dir.results, "meta_analysis/Logistic_regression_model/")
 dir.result.meta.analysis.ad <- file.path(dir.result.meta.analysis, "AD_vs_CN/")
-dir.result.meta.analysis.mci <- file.path(dir.result.meta.analysis, "MCI_vs_CN/")
 for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
 ```
 

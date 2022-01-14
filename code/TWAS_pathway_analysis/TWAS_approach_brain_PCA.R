@@ -93,13 +93,13 @@ save(
   residuals.matched.exp,
   matched.exp.log2,
   resid_met,cpgs.all,
-  file = "code/pathway_analysis/brain_residuals.rda"
+  file = "code/TWAS_pathway_analysis/brain_residuals.rda"
 )
 
 #-----------------------------------------------------------------------------
 # - compute PC1 for the 3751 cpgs
 #-----------------------------------------------------------------------------
-load("code/pathway_analysis/brain_residuals.rda")
+load("code/TWAS_pathway_analysis/brain_residuals.rda")
 pca <- prcomp(resid_met[rownames(resid_met) %in% cpgs.all,] %>% t,center = TRUE,scale = TRUE)
 PC1 <- pca$x[,"PC1"]
 
@@ -125,12 +125,12 @@ library(msigdbr)
 set.seed(42)
 
 # - test genesets in MSigDB C2:CP, C5:BP, C7:IMMUNESIGDB
-c2.cp.biocarta <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="BIOCARTA")
-c2.cp.kegg     <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="KEGG")
-c2.cp.reactome <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="REACTOME")
-c2.cp.wiki     <- msigdbr(species = "Homo sapiens", category = "C2", subcategory ="WIKIPATHWAYS")
-
-c2.cp <- rbind (c2.cp.biocarta, c2.cp.kegg, c2.cp.reactome, c2.cp.wiki )
+c2.cp.biocarta <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "BIOCARTA")
+c2.cp.kegg     <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "KEGG")
+c2.cp.reactome <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "REACTOME")
+c2.cp.wiki     <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "WIKIPATHWAYS")
+c2.cp.cgp    <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CGP")
+c2.cp <- rbind (c2.cp.biocarta, c2.cp.kegg, c2.cp.reactome, c2.cp.wiki, c2.cp.cgp)
 
 c2.cp.list <- split(x = c2.cp$human_gene_symbol, f = c2.cp$gs_name)
 
@@ -138,7 +138,7 @@ c2.cp.fgsea <- fgsea(
   pathways = c2.cp.list, 
   stats    = rank,
   minSize  = 15,
-  maxSize  = 500,
+  maxSize  = 700,
   eps = 0,
   scoreType = "pos"
 )
@@ -275,7 +275,7 @@ plot.merged <- ggpubr::ggboxplot(pc.samples,x = "braaksc_merged", y ="PC1", fill
 
 ggplot2::ggsave(
   plot = plot.merged, 
-  filename = "pathway_analysis/PC1_boxplot_brain_merged.pdf",
+  filename = "analysis_results/pathway_analysis/PC1_boxplot_brain_merged.pdf",
   width = 4,
   height = 4
 )

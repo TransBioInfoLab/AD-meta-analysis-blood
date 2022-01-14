@@ -1,0 +1,119 @@
+---
+title: "Integrative meta-analysis of epigenome-wide association studies identifies genomic and epigenomics differences in the brain and the blood in Alzheimer’s disease"
+subtitle: 'Brain data clinical information'
+author:
+  - Tiago Chedraoui Silva^[University of Miami]
+  - Lily Wang^[University of Miami]
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  prettydoc::html_pretty:
+    theme: leonids
+    toc: false
+    df_print: paged
+    code_download: false
+    toc_depth: 3
+    number_sections: false
+editor_options:
+  chunk_output_type: inline    
+vignette: >
+    %\VignetteIndexEntry{Brain samples metadata}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "../../")
+library(gt)
+library(readr)
+library(dplyr)
+library(SummarizedExperiment)
+library(ggpubr)
+dir.data <- file.path("datasets/") 
+# sc' stands for 'screen' and is usually about a month before baseline 'bl'.
+# “f” as a VISCODE means that the person failed the screening
+```
+
+# ADNI after PCA filtering
+
+```{R, include = TRUE, message = F}
+files <- dir(
+  path = "~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/DATASETS/",
+  recursive = T,
+  full.names = T,
+  pattern = "withNeuronProp_df.RDS"
+)
+files <- grep("GASPARONI|LONDON|MtSinai|ROSMAP",files,value = T)
+gasparoni <- readRDS(files[1])
+london <- readRDS(files[2])
+mtsinai <- readRDS(files[3])
+rosmap <- readRDS(files[4])
+
+df.braaksc_stage <- cbind(
+  mtsinai %>% summarise("0-2" = sum(stage %in% c(0:2)),"3-4" = sum(stage %in% c(3,4)),"5-6" = sum(stage %in% c(5:6))) %>% t,
+  rosmap %>% summarise("0-2" = sum(braaksc %in% c(0:2)),"3-4" = sum(braaksc %in% c(3,4)),"5-6" = sum(braaksc %in% c(5:6)))  %>% t,
+  gasparoni %>% summarise("0-2" = sum(stage %in% c(0:2)),"3-4" = sum(stage %in% c(3,4)),"5-6" = sum(stage %in% c(5:6))) %>% t,
+  london %>% summarise("0-2" = sum(stage %in% c(0:2)),"3-4" = sum(stage %in% c(3,4)),"5-6" = sum(stage %in% c(5:6)))  %>% t
+)
+colnames(df.braaksc_stage) <- c("mtsinai","rosmap","gasparoni","london")
+
+
+
+GSE80970_pheno <- readRDS("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/DATASETS/MtSinai/step1_download/GSE80970_pheno.RDS")
+mtsinai.status <- plyr::count(GSE80970_pheno$`disease status:ch1`[match(mtsinai$sample,GSE80970_pheno$geo_accession)])
+colnames(mtsinai.status)[2] <- "MtSinai"
+
+GSE66351_pheno <- read_csv("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/DATASETS/GASPARONI/step2_read_minfi/GSE66351_pheno.csv")
+gasparoni.status <- plyr::count(GSE66351_pheno$diagnosis.ch1[match(gasparoni$sample,GSE66351_pheno$geo_accession)])
+colnames(gasparoni.status)[2] <- "Gasparoni"
+gasparoni.status$x <- ifelse(gasparoni.status$x == "AD","Alzheimer's disease","control")
+
+GSE59685_pheno <- read_csv("~/TBL Dropbox/Tiago Silva/coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/DATASETS/LONDON/step1_download/GSE59685_pheno.csv")
+london.status <- plyr::count(GSE59685_pheno$ad.disease.status.ch1[match(london$sample,GSE59685_pheno$geo_accession)])
+colnames(london.status)[2] <- "London"
+london.status$x <- ifelse(london.status$x == "AD","Alzheimer's disease", ifelse(london.status$x == "C","control","Other"))
+
+rosmap$status <- ifelse(rosmap$cogdx %in% 2:3,"MCI",ifelse(rosmap$cogdx %in% 4:5,"Alzheimer's disease",ifelse(rosmap$cogdx %in% 1,"control","Other")))
+rosmap.status <- plyr::count(rosmap$status)
+colnames(rosmap.status)[2] <- "rosmap"
+df.AD_stage.status <- left_join(london.status,gasparoni.status) %>% left_join(mtsinai.status)  %>% right_join(rosmap.status)
+
+```
+
+# Disease status
+
+```{R}
+df.AD_stage.status %>%  gt()
+```
+
+# Braaksc
+
+```{R}
+df.braaksc_stage %>% data.frame() %>%  gt(rownames_to_stub = T)
+```
+
+# CERAD
+
+```{R}
+plyr::count(rosmap$ceradsc)
+```
+
+# Clinical consensus diagnosis at time of death 
+```{R}
+plyr::count(rosmap$cogdx)
+```
+
+# PMI
+```{R}
+paste0(
+  round(mean(rosmap$pmi,na.rm = T),digits = 2),
+  " (",
+  round(sd(rosmap$pmi,na.rm = T),digits = 2),")"
+)
+```
+
+
+# Session information
+```{R}
+sessionInfo()
+```

@@ -40,7 +40,7 @@ length(prioritized.dmrs) # 10
 
 
 prioritized.dmrs.probes <- plyr::alply(prioritized.dmrs,.margins = 1,.fun = function(dmr) {
-  GetCpGsInRegion(
+  coMethDMR:::GetCpGsInRegion(
     dmr,
     arrayType = "EPIC"
   )}) # 19 DMRs
@@ -75,7 +75,7 @@ matched.dnam.median <- na.omit(matched.dnam.median)
 
 
 # 1) remove confounding effects in DNAm data: 
-resid_dnam <- GetResiduals(
+resid_dnam <- coMethDMR::GetResiduals(
   dnam = matched.dnam.median,
   betaToM = TRUE, #converts to Mvalues for fitting linear model 
   pheno_df = matched.phenotype,
@@ -157,6 +157,12 @@ residuals.matched.exp <- plyr::adply(
   }, .progress = "time",
   .parallel = FALSE)
 rownames(residuals.matched.exp) <- rownames(matched.exp.log2)
+save(
+  residuals.matched.exp,
+  resid_dnam,
+  matched.phenotype,
+  file = "datasets/Aux/ROSMAP_matched_rna_dnam_residuals_DMR.rda"
+  )
 
 #-------------------------------------------------------------------------------
 # Aux functions

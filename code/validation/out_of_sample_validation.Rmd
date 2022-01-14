@@ -1,0 +1,511 @@
+---
+title: "Out-of-sample validation"
+date: "`r Sys.Date()`"
+output: 
+ html_document:
+    theme:
+      bg: "#202123"
+      fg: "#B8BCC2"
+      primary: "#EA80FC"
+      base_font: !expr bslib::font_google("Barlow")
+    highlight: zenburn
+    toc: true
+    df_print: paged
+    code_download: false
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+vignette: >
+    %\VignetteIndexEntry{Out-of-sample validation}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+knitr::opts_knit$set(root.dir = "../../")
+```
+
+# Libs and Paths
+```{r libs, include=T,message=F,warning=F}
+library(readr)
+library(dplyr)
+library(fgsea)
+library(msigdbr)
+library(SummarizedExperiment)
+library(tidyverse)
+library(caret)
+library(factoextra)
+library(pROC)
+library(DT)
+library(minfi)
+source("code/DNAm-based-age-predictor/pred.R")
+```
+
+# Get Cpgs
+
+## AD associated cpgs (AD vs CN) - CpGs
+
+```{r}
+#---------------------------------------------------------------------------------------------------------------
+# (a) AD-associated CpGs: include both 50 AD-associated CpGs + all CpGs from the 9 DMRs in Table 2 
+#---------------------------------------------------------------------------------------------------------------
+AD_vs_CN <- readxl::read_xlsx(
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 2 final_AD_vs_CN-selcted-columns-formatted-V3.xlsx",skip = 3
+)
+
+cpgs.ad.cn <- AD_vs_CN$cpg
+length(cpgs.ad.cn)
+```
+
+## AD associated cpgs (AD vs CN) - DMR
+```{r}
+
+dmr.ad.cn <- c(
+  "chr1:205819345-205819464",
+  "chr20:36148672-36148861",
+  "chr1:206786170-206786181",
+  "chr20:36149081-36149232",
+  "chr13:21578684-21578734",
+  "chr14:56777451-56777526",
+  "chr7:2728841-2728913",
+  "chr1:202172848-202172913",
+  "chr1:223566643-223566710"
+)
+length(dmr.ad.cn)
+dmr.ad.cn.cpgs.hm450 <- lapply(dmr.ad.cn, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "450k")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+dmr.ad.cn.cpgs.epic <- lapply(dmr.ad.cn, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "EPIC")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+
+ad.associated.cpgs.with.dmr.cpgs <- c(cpgs.ad.cn,dmr.ad.cn.cpgs.epic,dmr.ad.cn.cpgs.hm450) %>% unique
+length(ad.associated.cpgs.with.dmr.cpgs)
+```
+
+
+## AD prioritized Cpgs
+```{R}
+#---------------------------------------------------------------------------------------------------------------
+# (b) cross-tissue (i.e., prioritized CpGs): include both 97 CpGs + all CpGs from the 10 DMRs in Fig 2
+#---------------------------------------------------------------------------------------------------------------
+cpgs.prioritized <- readxl::read_xlsx(
+  "DRAFT-TABLES_FIGURES_4-17-2021/_Supp Table 3 prioritized-CpGs-crossTissue_brain_blood-clean.xlsx",skip = 3
+)
+cpgs.prioritized  <- cpgs.prioritized$CpG %>% na.omit() %>% as.character
+length(cpgs.prioritized)
+```
+
+
+## AD prioritized DMRs
+```{R}
+
+dmr.prioritized <- c(
+  "chr16:57405979-57406511",
+  "chr6:31554829-31555016",
+  "chr6:30853948-30854233",
+  "chr15:39871808-39872186",
+  "chr6:166876490-166877038",
+  "chr1:167090618-167090757",
+  "chr17:7832680-7832943",
+  "chr17:62009607-62009835",
+  "chr12:125028166-125028339",
+  "chr10:682693-682871"
+)
+length(dmr.prioritized)
+
+dmr.prioritized.cpgs.hm450 <- lapply(dmr.prioritized, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "450k")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+dmr.prioritized.cpgs.epic <- lapply(dmr.prioritized, function(x) {
+  print(x);
+  cpgs <- tryCatch({coMethDMR::GetCpGsInRegion(x,genome = "hg19",arrayType = "EPIC")}, error = function(e){return(NULL)})
+  cpgs
+}) %>% unlist %>% unique
+
+ad.prioritized.cpgs.with.dmr.cpgs <- c(cpgs.prioritized,dmr.prioritized.cpgs.epic,dmr.prioritized.cpgs.hm450) %>% unique
+length(ad.prioritized.cpgs.with.dmr.cpgs)
+```
+
+```{R}
+#---------------------------------------------------------------------------------------------------------------
+# 2. Polygenic methylation risk scores (MRS score)
+# (1) compute these as sum of beta values weighted by meta-analysis effect estimate (column “estimate.bacon”) in meta-analysis results file
+#---------------------------------------------------------------------------------------------------------------
+meta.analysis.results <- readr::read_csv("analysis_results/meta_analysis/Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv")
+meta.analysis.results
+MRS.weights <- meta.analysis.results$AIBL_AD_vs_CN_Estimate.bacon[match(c(ad.prioritized.cpgs.with.dmr.cpgs,ad.associated.cpgs.with.dmr.cpgs),meta.analysis.results$cpg)]
+names(MRS.weights) <- c(ad.prioritized.cpgs.with.dmr.cpgs,ad.associated.cpgs.with.dmr.cpgs)
+MRS.weights <- MRS.weights[!is.na(MRS.weights)]
+head(MRS.weights)
+```
+
+# Data
+
+## Training data - AIBL
+```{R}
+#-----------------------------------------------------------------------------
+# Training data 
+# AIBL dataset 
+#-----------------------------------------------------------------------------
+# - Only CN and Dementia samples
+cohort <- "AIBL"
+dir.base <- getwd()
+dir.data <- file.path(dir.base,"datasets/",cohort,"/") 
+dir.data.pca <- file.path(dir.data,"/pca_filtering/") 
+aibl.se <- readRDS(
+  file.path(dir.data.pca, "AIBL_QNBMIQ_PCfiltered_age_at_least_65.RDS")
+)
+
+aibl.se <- aibl.se[,!aibl.se$`disease status:ch1` %in% "Mild Cognitive Impairment" ]
+table(aibl.se$`disease status:ch1`)
+# Alzheimer's disease     healthy control 
+#  135                    356 
+pheno.training.aibl <- colData(aibl.se)
+pheno.training.aibl$DIAGNOSIS <- factor(pheno.training.aibl$`disease status:ch1`, levels = c("healthy control", "Mild Cognitive Impairment", "Alzheimer's disease"))
+pheno.training.aibl$SEX <- ifelse(pheno.training.aibl$Sex == "M","Male","Female") %>% factor()
+pheno.training.aibl$AGE <- pheno.training.aibl$age.pred.Elastic_Net
+pheno.training.aibl$DIAGNOSIS <- pheno.training.aibl$DIAGNOSIS %>% droplevels()
+plyr::count(pheno.training.aibl$DIAGNOSIS)
+# x freq
+# 1     healthy control  356
+# 2 Alzheimer's disease  135
+aibl.se <- aibl.se[,pheno.training.aibl$geo_accession]
+all(colnames(aibl.se) == pheno.training.aibl$geo_accession)
+```
+
+##  Testing dataset  - AddNeuromed
+```{R}
+#-----------------------------------------------------------------------------
+# Testing dataset 
+# AddNeuromed dataset
+#-----------------------------------------------------------------------------
+# http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/#predict-using-pca
+# http://www.sthda.com/english/articles/38-regression-model-validation/157-cross-validation-essentials-in-r/
+cohort <- "AddNeuroMed"
+dir.base <- "~/TBL Dropbox/Tiago Silva/AD-meta-analysis-blood-samples/"
+dir.data <- file.path(dir.base,"datasets/",cohort,"/") 
+dir.data.processed <- file.path(dir.data,"/step2_processed/") 
+load(file.path(dir.data.processed,"addNeuroMed_se_predicted.rda"))
+addNeuroMed.se <- addNeuroMed.se.predicted
+
+age <- age.predictor(assay(addNeuroMed.se))
+tab.age <- age$age.pred
+tab.age$geo_accession <- rownames(tab.age)
+
+addNeuroMed.se <- addNeuroMed.se[,addNeuroMed.se$disease.state.ch1 !=  "mild cognitive impairment"]
+addNeuroMed.se <- addNeuroMed.se[rowSums(is.na(assay(addNeuroMed.se))) != ncol(addNeuroMed.se),]
+
+#  0 = control, 1 = AD
+pheno.testing <- data.frame(colData (addNeuroMed.se)) %>% merge(tab.age)
+pheno.testing$DIAGNOSIS <- factor(pheno.testing$disease.state.ch1, levels = c("control", "mild cognitive impairment", "Alzheimer's disease"))
+pheno.testing$SEX <- pheno.testing$Sex.ch1 %>% factor()
+pheno.testing$DIAGNOSIS <- pheno.testing$DIAGNOSIS %>% droplevels()
+pheno.testing$AGE <- pheno.testing$age.ch1
+plyr::count(pheno.testing$DIAGNOSIS)
+
+addNeuroMed.se <- addNeuroMed.se[,pheno.testing$geo_accession]
+all(colnames(addNeuroMed.se) == pheno.testing$geo_accession)
+
+
+```
+
+
+```{R data}
+
+#-----------------------------------------------------------------------------
+# ADNI
+#-----------------------------------------------------------------------------
+cohort <- "ADNI"
+dir.base <- getwd()
+dir.data <- file.path(dir.base,"datasets/",cohort,"/") 
+dir.data.pca <- file.path(dir.data,"/data/DNA_methylation/pca_filtering/") 
+adni.se <- readRDS(
+  file.path(dir.data.pca, "ADNI_QNBMIQ_PCfiltered_min_age_at_visit_65.RDS")
+)
+
+
+adni.se <- adni.se[,!adni.se$DX %in% "MCI" ]
+adni.se <- adni.se[,!is.na(adni.se$DX)]
+table(adni.se$DX)
+
+file.age.adni <- file.path(dir.data,"/data/DNA_methylation/ADNI_Predicted_age.xlsx")
+if(!file.exists(file.age.adni)){
+  age <- age.predictor(assay(adni.se))
+  tab.age <- age$age.pred
+  tab.age$Sample <- rownames(tab.age)
+  writexl::write_xlsx(tab.age,file.age.adni)
+} else {
+  tab.age <- readxl::read_xlsx(file.age.adni)
+}
+tab.age$barcodes <- tab.age$Sample
+
+
+pheno.training.adni <- colData(adni.se) %>% merge(tab.age,sort = FALSE)
+pheno.training.adni$DIAGNOSIS <- factor(
+  ifelse(pheno.training.adni$DX == "CN", "healthy control", "Alzheimer's disease"),
+  levels = c("healthy control", "mild cognitive impairment", "Alzheimer's disease")
+) %>% droplevels()
+pheno.training.adni$SEX <- pheno.training.adni$PTGENDER  %>% factor()
+pheno.training.adni$AGE <- pheno.training.adni$age_at_visit
+pheno.training.adni$age.pred.Elastic_Net <- pheno.training.adni$Elastic_Net
+plyr::count(pheno.training.adni$DIAGNOSIS)
+
+# Keep only last visit 
+pheno.training.adni <- pheno.training.adni %>% as.data.frame %>%  dplyr::group_by(RID) %>% filter(age_at_visit == max(age_at_visit)) 
+adni.se <- adni.se[,adni.se$barcodes %in% pheno.training.adni$barcodes]
+plyr::count(pheno.training.adni$DIAGNOSIS)
+
+# Put them in the same order
+adni.se <- adni.se[,pheno.training.adni$barcodes]
+all(colnames(adni.se) == pheno.training.adni$barcodes)
+```
+
+```{R, include = FALSE}
+gc()
+```
+
+# MRS
+
+```{R mrs}
+#---------------------------------------------------------------------------------------------------------------
+# 2. Polygenic methylation risk scores (MRS score)
+# (1) compute these as sum of beta values weighted by meta-analysis effect estimate (column “estimate.bacon”) in meta-analysis results file
+#---------------------------------------------------------------------------------------------------------------
+get_MRS_weights <- function(cpgs,training.datasets){
+  meta.analysis.results <- readr::read_csv(
+    file = "analysis_results/meta_analysis/Logistic_regression_model/AD_vs_CN/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv",
+    show_col_types = FALSE
+  )
+  
+  if(training.datasets == "AIBL")  MRS.weights <- meta.analysis.results$AIBL_AD_vs_CN_Estimate.bacon[match(c(cpgs),meta.analysis.results$cpg)]
+  if(training.datasets == "ADNI")  MRS.weights <- meta.analysis.results$ADNI_AD_vs_CN_Estimate.bacon[match(c(cpgs),meta.analysis.results$cpg)]
+  if(training.datasets == "ADNI + AIBL")  MRS.weights <- meta.analysis.results$estimate.bacon[match(c(cpgs),meta.analysis.results$cpg)]
+  names(MRS.weights) <- c(cpgs)
+  
+  # Remove if Cpgs were not evaluated  in meta-analysis
+  MRS.weights <- MRS.weights[!is.na(MRS.weights)] 
+  
+  return(MRS.weights)
+}
+```
+
+# Evaluate AUC
+
+##  Aux function to get AUC
+
+```{R get_auc}
+get_auc <- function(model.formula = model.formula,data.training = NULL ,data.testing = NULL){
+  model <- glm(
+    formula = model.formula,
+    data = data.training, 
+    family = binomial
+  )
+  #-----------------------------------------------------------------------------
+  #  Testing model
+  #-----------------------------------------------------------------------------
+  data.testing$probabilities <- model %>% predict(data.testing, type = "response")
+  result <- roc(DIAGNOSIS ~ probabilities, data = data.testing,print.auc=TRUE)
+  auc <- result$auc
+  
+  return(auc)
+}
+
+
+calc_auc <- function(
+  cpgs = NULL,
+  cpgs.label = NULL,
+  model.formula = "DIAGNOSIS ~ MRS + AGE + SEX + B + NK + CD4T + CD8T + Mono + Neutro",
+  training.datasets = "AIBL"
+){
+  
+  aibl.se <- aibl.se[rownames(aibl.se) %in% cpgs,]
+  adni.se <- adni.se[rownames(adni.se) %in% cpgs,]
+  addNeuroMed.se <- addNeuroMed.se[rownames(addNeuroMed.se) %in% cpgs,]
+  
+  if(training.datasets == "AIBL"){
+    pheno.training <- pheno.training.aibl 
+    data.training <- assay(aibl.se)
+  }
+  if(training.datasets == "ADNI"){
+    pheno.training <- pheno.training.adni
+    data.training <- assay(adni.se)
+  }
+  if(training.datasets == "ADNI + AIBL"){
+    common.cols <- intersect(colnames(pheno.training.adni), colnames(pheno.training.aibl))
+    pheno.training <- cbind(
+      rbind(
+        pheno.training.aibl[,common.cols] %>% as_tibble(),
+        pheno.training.adni[,common.cols]  %>% as_tibble()
+      )
+    )
+    pheno.training <- cbind(
+      data.frame("Sample" = c(pheno.training.aibl$geo_accession,pheno.training.adni$barcodes)),
+      pheno.training
+    )
+    common.cpgs <- intersect(rownames(aibl.se), rownames(adni.se))
+    data.training <- cbind(assay(aibl.se)[common.cpgs,],assay(adni.se)[common.cpgs,])
+    
+    
+  }
+  
+  pheno.testing$AGE <- pheno.testing$age.ch1
+  pheno.training$AGE <- pheno.training$AGE
+  
+  #-----------------------------------------------------------------------------
+  # - Get MRS weights
+  #-----------------------------------------------------------------------------
+  common.cpgs <- intersect(rownames(addNeuroMed.se), rownames(data.training))
+  
+  MRS.weights <- get_MRS_weights(common.cpgs, training.datasets)
+  common.cpgs <- intersect(common.cpgs,names(MRS.weights))
+  
+  # print("Calculating MRS")
+  # Calculate the MRS for each sample beta dot product weights
+  MRS <- MRS.weights[common.cpgs] %*% data.training[common.cpgs,]
+  
+  # print(all(colnames(MRS) == pheno.training[,1]))
+  
+  data.training <- cbind(pheno.training,data.frame("MRS" = MRS %>% as.numeric() ))
+  
+  #-----------------------------------------------------------------------------
+  # - compute MRS in Testing
+  #-----------------------------------------------------------------------------
+  data.testing <- assay(addNeuroMed.se)[common.cpgs,] 
+  MRS <- MRS.weights[common.cpgs] %*% data.testing[common.cpgs,]
+  data.testing <- cbind(pheno.testing,data.frame("MRS" = MRS %>% as.numeric() ))
+  
+  data.testing <- data.testing[!is.na(data.testing$MRS),]
+  
+  nsamples.testing <- nrow(data.testing)
+  nsamples.training <- nrow(data.training)
+  
+  #-----------------------------------------------------------------------------
+  #  Training model
+  #-----------------------------------------------------------------------------
+  # - Logistic regression logit (Pr(AD)) ~ alpha + beta * PC1 + age + sex
+  auc <- get_auc(
+    model.formula = model.formula,
+    data.training = data.training,
+    data.testing = data.testing
+  )
+  
+  data.frame(
+    "Training dataset" = training.datasets,
+    "Testing dataset" = "AddNeuroMed",
+    "nsamples.testing" = nsamples.testing,
+    "nsamples.training" = nsamples.training,
+    "Number.Cpgs" = common.cpgs,
+    "Model" = model.formula,
+    "Cpgs" = cpgs.label,
+    "AUC" = auc
+  )
+  
+}
+
+```
+
+
+## Fit model and test
+
+
+```{R, message = FALSE, warning = FALSE}
+loop.formulas <- c(
+  "DIAGNOSIS ~ MRS + AGE + SEX + B + NK + CD4T + CD8T + Mono + Neutro",
+  "DIAGNOSIS ~ MRS + AGE + SEX",
+  "DIAGNOSIS ~ MRS + AGE",
+  "DIAGNOSIS ~ MRS ",
+  "DIAGNOSIS ~ AGE + SEX + B + NK + CD4T + CD8T + Mono + Neutro",
+  "DIAGNOSIS ~ B + NK + CD4T + CD8T + Mono + Neutro",
+  "DIAGNOSIS ~ AGE + SEX",
+  "DIAGNOSIS ~ AGE"
+)
+
+final.table <- data.frame()
+for(training.datasets in c("ADNI + AIBL","ADNI","AIBL")){
+  for(model.formula in loop.formulas){
+    
+    for(cpgs.label in c("Prioritized","AD-associated","AD-associated & Prioritized","Prioritized + all cpgs from 10 DMR","AD-associated + all cpgs from 9 DMR")){
+      if(cpgs.label == "Prioritized") cpgs <- cpgs.prioritized
+      if(cpgs.label == "Prioritized + all cpgs from 10 DMR") cpgs <- ad.prioritized.cpgs.with.dmr.cpgs
+      if(cpgs.label == "AD-associated") cpgs <- cpgs.ad.cn
+      if(cpgs.label == "AD-associated + all cpgs from 9 DMR") cpgs <- ad.associated.cpgs.with.dmr.cpgs
+      if(cpgs.label == "AD-associated & Prioritized") cpgs <- c(cpgs.ad.cn,cpgs.prioritized) %>% unique
+      table <- calc_auc(
+        cpgs = cpgs,
+        training.datasets = training.datasets,
+        cpgs.label = cpgs.label,
+        model.formula = model.formula
+      )
+      final.table <- rbind(final.table,table)
+    }
+  }
+}
+```
+
+
+## Results
+```{R tab}
+final.table %>% DT::datatable(filter = "top")
+```
+
+```{R, include = FALSE}
+write.csv(final.table,file = "final_table_from_Rmd.csv")
+```
+
+```{R, fig.width = 20}
+final.table$AUC <- final.table$AUC %>% as.numeric()
+final.table$Model <- factor(
+  final.table$Model,
+  levels = rev(unique(final.table$Model[order(stringr::str_length(final.table$Model))]))
+)
+
+plot.list <- plyr::alply(final.table$Cpgs %>% unique,.margins = 1,.fun = function(i){
+  
+  aux <-  final.table %>% dplyr::filter(Cpgs %in% i)
+  print(round(range(aux$AUC),digits = 2))
+  p <- ggpubr::ggdotchart(
+    aux,
+    x = "Model",
+    y = "AUC",
+    facet.by = "Training.dataset",
+    add.params = list(color = "lightgray", size = 1.5),
+    font.label = list(color = "white", size = 12,  vjust = 0.5),     
+    fill = "Model",
+    sorting = "none",
+    color = "Model",
+    title = paste0("CpGs: ", i),
+    label = round(aux$AUC,digits = 3),
+    add = "segments",                             # Add segments from y = 0 to dots
+    rotate = TRUE,                               # Rotate vertically
+    dot.size = 13  
+  )  + ggsci::scale_fill_jco() + 
+    ggsci::scale_color_jco() + 
+    theme(legend.position="none")  + 
+    ylim(0.45,0.7) + 
+    ggpubr::theme_cleveland()
+  return(p)
+})
+
+ggpubr::ggarrange(plotlist = plot.list,nrow = length(plot.list)) %>% 
+  ggsave(
+    filename = "~/Dropbox (BBSR)/Tiago Silva/AD-meta-analysis-blood-samples/analysis_results/validation/out_of_samples_auc_dotchart.pdf",
+    width = 20,height = 20
+  )
+
+```
+
+# Session info
+```{R}
+sessioninfo::session_info()
+```

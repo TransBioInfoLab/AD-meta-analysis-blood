@@ -287,6 +287,68 @@ rbind(aibl.by.groups,aibl.all) %>%  gt() %>%
 ```
 
 
+# AddNeuroMed after PCA filtering
+
+```{R echo = FALSE}
+AddNeuroMed.se <- readRDS(
+  file.path(dir.data,"AddNeuroMed/step3_pca_filtering/addNeuroMed_QNBMIQ_PCfiltered.RDS")
+)
+clinical <- colData(AddNeuroMed.se)
+```
+
+## AddNeuroMed clinical table
+
+```{r addneuromed,message=FALSE, echo=FALSE}
+clinical$DX <- clinical$disease.state.ch1
+clinical$PTGENDER <- clinical$Sex.ch1
+
+AddNeuroMed.by.groups <- clinical %>% as.data.frame  %>% 
+  dplyr::group_by(DX) %>% 
+   dplyr::filter(DX != "mild cognitive impairment") %>% 
+  dplyr::summarize(
+    "Diagnosis Groups" =  paste0(
+      unique(DX)  %>% 
+        gsub(x = ., pattern = "control",replacement = "Cognitively Normal") %>%
+        gsub(x = ., pattern = "mild cognitive impairment",replacement = "Mild Cognitive Impairment") %>% 
+        gsub(x = ., pattern = "Alzheimer's disease",replacement = "Alzheimer's disease") ,
+      " (n=",n(),")"
+    ),
+    "Age in years Mean (SD)" = paste0(
+      format(mean(age.ch1,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(age.ch1,na.rm = T),digits = 3),")"
+    ), 
+    "Number of Males (%)" = paste0(sum(PTGENDER == "Male")," (",format(100 * sum(PTGENDER == "Male")/length(PTGENDER),digits = 4),"%)"),
+    "Number of Females (%)" = paste0(sum(PTGENDER == "Female")," (",format(100 * sum(PTGENDER == "Female")/length(PTGENDER),digits = 4),"%)")
+  ) %>% dplyr::select(2:5) 
+
+
+AddNeuroMed.all <-  clinical %>% as.data.frame  %>% 
+  dplyr::filter(DX != "mild cognitive impairment") %>% 
+  dplyr::summarize(
+    "Diagnosis Groups" =  paste0("All (n=",n(),")"
+    ),
+    "Age in years Mean (SD)" = paste0(
+      format(mean(age.ch1,na.rm = T),digits = 4)
+      , " (", 
+      format(sd(age.ch1,na.rm = T),digits = 3),")"
+    ), 
+    "Number of Males (%)" = paste0(sum(PTGENDER == "Male")," (",format(100 * sum(PTGENDER == "Male")/length(PTGENDER),digits = 4),"%)"),
+    "Number of Females (%)" = paste0(sum(PTGENDER == "Female")," (",format(100 * sum(PTGENDER == "Female")/length(PTGENDER),digits = 4),"%)")
+  ) 
+
+rbind(AddNeuroMed.by.groups,AddNeuroMed.all) %>%  gt() %>%
+  tab_header(
+    title = "AddNeuroMed. patient cohort selected for DNA methylation analysis",
+    subtitle = paste0(
+      "Patient cohort (N=",  clinical  %>% as.data.frame %>%  
+        dplyr::filter(DX != "mild cognitive impairment") %>%  dplyr::pull(geo_accession) %>% unique %>% length(),"; ",
+      clinical  %>% as.data.frame %>%  dplyr::filter(DX != "mild cognitive impairment") %>% nrow()," DNA samples)"
+    )
+  )
+```
+
+
 # Session information
 ```{R}
 devtools::session_info()

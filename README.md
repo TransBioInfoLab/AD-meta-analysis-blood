@@ -2,6 +2,10 @@
 # Cross-tissue meta-analysis of blood and brain epigenome-wide association studies in Alzheimer’s disease 
 Tiago C. Silva, Juan I. Young, Lanyu Zhang, Lissette Gomez, Michael A. Schmidt, Achintya Varma, Xi Chen, Eden R. Martin, Lily Wang
 
+## Citing this repository
+
+[![DOI](https://zenodo.org/badge/385282761.svg)](https://zenodo.org/badge/latestdoi/385282761)
+
 ### Description
 
 This github repository includes scripts used for the analyses in the above manuscript. 

@@ -35,10 +35,10 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 
 #### 2.1 Blood samples meta-analysis	results
 
-|  Link |
+|  File | Link |
 |----------------------|
-|Single CpG - https://www.dropbox.com/sh/51792v73rbrpf3k/AABL9TwwVfest5J3Z8vpZi60a?dl=0 |
-|DMR - https://www.dropbox.com/sh/hgtj1tplkbihz83/AABsyfPQ8HGiuU8Mw3tKtb-Za?dl=0  |
+| meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv - | https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/results/meta_analysis_glm_fixed_effect_ADNI_and_AIBL_AD_vs_CN_single_cpg_annotated.csv|
+ 
  
 ### 3. Cross-tissue meta-analysis	
 
@@ -47,11 +47,6 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis.Rmd) |
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd) |
 
-#### 3.1 Cross-tissue meta-analysis	results
-
-|  Link |
-|----------------------|
-|https://www.dropbox.com/sh/04h8drck176mf9u/AADfTmRc8PoquVbpMIMzguVMa?dl=0|
 
 
 ### 4. Functional annotation of significant methylation differences

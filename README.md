@@ -47,7 +47,7 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis.Rmd) |
 | code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd        |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/cross_tissue_meta_analysis/cross_tissue_meta_analysis_DMR.Rmd) |
 
-#### 3.1 Cross-tissue meta-analysis	
+#### 3.1 Cross-tissue meta-analysis	results
 
 | File                 | Link |
 |----------------------|-------------|

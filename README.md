@@ -34,8 +34,11 @@ In this work, we performed a meta-analysis of two large independent blood-based 
 | code/meta-analysis/meta-analysis-two-cohorts_glm_DMR.Rmd      |  [Link to the script](https://github.com/TransBioInfoLab/AD-meta-analysis-blood/blob/main/code/meta-analysis/meta-analysis-two-cohorts_glm_DMR.Rmd) |
 
 #### 2.1 Blood samples meta-analysis	results
-Single CpG - https://www.dropbox.com/sh/51792v73rbrpf3k/AABL9TwwVfest5J3Z8vpZi60a?dl=0
-DMR - https://www.dropbox.com/sh/hgtj1tplkbihz83/AABsyfPQ8HGiuU8Mw3tKtb-Za?dl=0 
+
+|  Link |
+|----------------------|
+|Single CpG - https://www.dropbox.com/sh/51792v73rbrpf3k/AABL9TwwVfest5J3Z8vpZi60a?dl=0 |
+|DMR - https://www.dropbox.com/sh/hgtj1tplkbihz83/AABsyfPQ8HGiuU8Mw3tKtb-Za?dl=0  |
  
 ### 3. Cross-tissue meta-analysis	
 
@@ -46,7 +49,9 @@ DMR - https://www.dropbox.com/sh/hgtj1tplkbihz83/AABsyfPQ8HGiuU8Mw3tKtb-Za?dl=0
 
 #### 3.1 Cross-tissue meta-analysis	results
 
-https://www.dropbox.com/sh/04h8drck176mf9u/AADfTmRc8PoquVbpMIMzguVMa?dl=0
+|  Link |
+|----------------------|
+|https://www.dropbox.com/sh/04h8drck176mf9u/AADfTmRc8PoquVbpMIMzguVMa?dl=0|
 
 
 ### 4. Functional annotation of significant methylation differences
